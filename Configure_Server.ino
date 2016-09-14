@@ -1,8 +1,14 @@
+
+#include <ESP8266WebServer.h>
+#include "Configure_index.h"
 String st;
 String content;
+ESP8266WebServer Pserver(80);
+#define Configure_Server_P Pserver
+//external Configure_Server_P
 
 void webConfigureWifi() {
-  EEPROM.begin(512);
+  configureBegin();
   WiFi.mode(WIFI_AP_STA);
   WiFi.disconnect();
   WiFi.softAP(ACCESS_POINT_NAME, NULL);
@@ -11,13 +17,14 @@ void webConfigureWifi() {
   String epass = configureReadSSIDPassword();
   if ( factory == 1 ) {
       if (waitWifi(esid, epass)) {
-        setupWeb(0);
-        return;
       }
   }
-  //fail / into factory
-  setupAP();
-  setupWeb(1);
+	setupAP();
+	setupWeb();  
+}
+
+void webConfigureWifiHandle() {
+	Configure_Server_P.handleClient();
 }
 
 void setupAP(void) {
@@ -44,48 +51,56 @@ void setupAP(void) {
      }
   }
   Serial.println("");
-  st = "<ol>";
+  st = "";
+
   for (int i = 0; i < n; ++i)
     {
       // Print SSID and RSSI for each network found
-      st += "<li>";
-      st += WiFi.SSID(i);
-      st += " (";
-      st += WiFi.RSSI(i);
-      st += ")";
-      st += (WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*";
-      st += "</li>";
+      st +="<option value=\"" + WiFi.SSID(i) + "\">" + ((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*") + WiFi.SSID(i) + "(RSSI:" + WiFi.RSSI(i) + ")</option>";
     }
-  st += "</ol>";
+
   delay(100);
 }
 
 
-void setupWeb(int webtype) {
+void setupWeb() {
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP());
   Serial.print("SoftAP IP: ");
   Serial.println(WiFi.softAPIP());
-  createWebServer(webtype);
+  createWebServer();
   // Start the server
   Configure_Server_P.begin();
   Serial.println("Server started");
 }
 
-void createWebServer(int webtype)
+void createWebServer()
 {
-  if ( webtype == 1 ) {
+
     Configure_Server_P.on("/", []() {
         IPAddress ip = WiFi.softAPIP();
         String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
-        content = "<!DOCTYPE HTML>\r\n<html>Configure Wifi";
-        content += ipStr;
-        content += "<p>";
-        content += st;
-        content += "</p><form method='get' action='setting'><label>SSID: </label><input name='ssid' length=32><input name='pass' length=64><input type='submit'></form>";
-        content += "</html>";
+        IPAddress lip = WiFi.localIP();
+        String lipStr = String(lip[0]) + '.' + String(lip[1]) + '.' + String(lip[2]) + '.' + String(lip[3]);
+        IPAddress gwip = WiFi.gatewayIP();
+        String gwStr = String(gwip[0]) + '.' + String(gwip[1]) + '.' + String(gwip[2]) + '.' + String(gwip[3]);        
+        
+        content = PAGE_IndexPage;
+        content.replace("{APIP}",ipStr);
+        content.replace("{SIDOPT}",st);
+        content.replace("{LIP}",lipStr);
+        content.replace("{LGW}",gwStr);
+        content.replace("{SI}",configureReadSSIDName());
+        content.replace("{SIP}",configureReadSSIDPassword());
+        if (WiFi.status() == WL_CONNECTED) {
+			content.replace("{STATE}","CONNECTED");
+		}else {
+			content.replace("{STATE}","DISCONNECTED");
+		}
+
+        
         Serial.println(Configure_Server_P.uri());
         Configure_Server_P.send(200, "text/html", content);
     });
@@ -93,17 +108,18 @@ void createWebServer(int webtype)
         String qsid = Configure_Server_P.arg("ssid");
         String qpass = Configure_Server_P.arg("pass");
         if (qsid.length() > 0 && qpass.length() > 0) {
-          Serial.println("clearing eeprom");
-          for (int i = 0; i < 96; ++i) { EEPROM.write(i, 0); }
-          Serial.println(qsid);
-          Serial.println("");
-          Serial.println(qpass);
-          Serial.println("");
+			Serial.println("clearing eeprom");
+			configureClear();
+			Serial.println(qsid);
+			Serial.println("");
+			Serial.println(qpass);
+			Serial.println("");
           //
-          configureWriteSSIDName(qsid);
-          configureWriteSSIDPassword(qpass);
-          configureWriteStateForFactory(1);
-          EEPROM.commit();
+			configureWriteSSIDName(qsid);
+			configureWriteSSIDPassword(qpass);
+			configureWriteStateForFactory(1);
+			configureCommit();
+
 			sendHtmlPageWithRedirectByTimer("/","saved to eeprom and reset to boot into new wifi by self");
             ESP.restart();
         } else {
@@ -113,28 +129,14 @@ void createWebServer(int webtype)
           Configure_Server_P.send(statusCode, "application/json", content);
         }
     });
-  } else if (webtype == 0) {
-    Configure_Server_P.on("/", []() {
-      IPAddress ip = WiFi.localIP();
-      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
-      //Configure_Server_P.send(200, "application/json", "{" + "\"SSID\":\"" + WiFi.SSID() + "\"" + "\"IP\":\"" + ipStr + "\"" + "}");
-        content = "<!DOCTYPE HTML>\r\n<html>Connect to Wifi";
-        content += "<p>SSID:" + WiFi.SSID() + "</p>";
-        content += "<p>IP:" + ipStr + "</p>";;
-        content += "<p><a href='cleareeprom'>clear setting</a>";
-        content += "</html>";
-        Configure_Server_P.send(200, "text/html", content);
-    });
     Configure_Server_P.on("/cleareeprom", []() {
 			Serial.println("clearing eeprom");
 			sendHtmlPageWithRedirectByTimer("/","Clearing the EEPROM and reset to boot");
-      for (int i = 0; i < 96 + 5; ++i) {
-		  EEPROM.write(i, 0);
-	   }
-		EEPROM.commit();
+		configureClear();
+		configureCommit();
 		ESP.restart();
     });
-  }
+
 }
 
 void sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message)
@@ -163,9 +165,12 @@ void sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message)
 
 bool waitWifi(String essid, String epassword) {
   int c = 0;
+  if ((essid.length()<=0) || (epassword.length()<=0)) {
+	  return false;
+  }
   WiFi.begin(essid.c_str(), epassword.c_str());
   Serial.println("Waiting for Wifi to connect");
-  while ( c < 20 ) {
+  while ( c < 30 ) {
     if (WiFi.status() == WL_CONNECTED) { return true; }
     delay(500);
     Serial.print(WiFi.status());

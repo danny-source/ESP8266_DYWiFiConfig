@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        fieldset {
+            padding-top: 10px;
+            border: 1px solid #666;
+            border-radius: 8px;
+        }
+        
+        legend {
+            float: left;
+            margin-top: -20px;
+        }
+        
+        legend {
+            padding: 1px 1px;
+            background: #fff;
+            /* For better legibility against the box-shadow */
+        }
+        
+        legend+* {
+            clear: both;
+        }
+    </style>
+</head>
+
+<body>
+    <div>Wifi Direct IP:{APIP}</div>
+    <p></p>
+    <fieldset>
+        <legend>Wifi Setting</legend>
+        <P>SSID Name:{SI}</P>
+        <P>SSID Password:{SIP}</P>
+        <P>Status:{STATE}</P>
+        <P></P>
+        <fieldset>
+            <legend>IP</legend>
+            <p>IP:{LIP}</p>
+            <p>GW:{LGW}</p>
+        </fieldset>
+    </fieldset>
+    <P></P>
+    <P></P>
+    <form method='get' action='setting' id="form-setting" name="form-setting" onsubmit="return checkAllField(this)">
+        <fieldset>
+            <legend>Change Setting</legend>
+            <P></P> SSID <select id="SSIDFastSelection" name="ssids" onchange='ValueFillTo(this.id,"SSIDName")' style="width:90%;font-size:110%"> <option value="*-*">===SELECT===</option> {SIDOPT} </select>
+            <P></P>
+            <p> <label for="SSIDName">SSID Name</label> <input id="SSIDName" name="ssid" maxlength="32" style="width:80%;font-size:110%"> </p>
+            <p> <label for="SSIDPassword">SSID Password</label> <input id="SSIDPassowrd" name="pass" maxlength="32" style="width:80%;font-size:110%"> </p>
+            <p> <label for="dhcpAuto">Auto</label> <input type="radio" id="dhcpAuto" name="dhcpAuto" value="1" checked onClick='showBlock("ManualIP",false);'> <label for="dhcpAuto">Manual</label> <input type="radio" id="dhcpAuto" name="dhcpAuto" value="0" onClick='showBlock("ManualIP",true);'>
+                <div id="ManualIP">
+                    <fieldset>
+                        <legend>Setting</legend>
+                        <table border="0px" cellPadding="1px" cellSpacing="1px">
+                            <tr>
+                                <td>IP</td>
+                                <td><input type="text" id="ip1" name="ip1" maxlength="3">.<input type="text" id="ip2" name="ip2" maxlength="3">.<input type="text" id="ip3" name="ip3" maxlength="3">.<input type="text" id="ip4" name="ip4" maxlength="3"></td>
+                            </tr>
+                            <tr>
+                                <td>Gateway</td>
+                                <td><input type="text" id="gw1" name="gw1" maxlength="3">.<input type="text" id="gw2" name="gw2" maxlength="3">.<input type="text" id="gw3" name="gw3" maxlength="3">.<input type="text" id="gw4" name="ip4" maxlength="3"></td>
+                            </tr>
+                            <tr>
+                                <td>Netmask</td>
+                                <td><input type="text" id="sn1" name="sn1" maxlength="3">.<input type="text" id="sn2" name="sn2" maxlength="3">.<input type="text" id="sn3" name="sn3" maxlength="3">.<input type="text" id="sn4" name="sn4" maxlength="3"></td>
+                            </tr>
+                            <tr>
+                                <td>DNS</td>
+                                <td><input type="text" id="dns1" name="dns1" maxlength="3">.<input type="text" id="dns2" name="dns2" maxlength="3">.<input type="text" id="dns3" name="dns3" maxlength="3">.<input type="text" id="dns4" name="dns4" maxlength="3"></td>
+                            </tr>
+                        </table>
+                    </fieldset>
+                </div> <input type="submit"> </p>
+        </fieldset>
+    </form>
+    <script>
+        var dhcpAuto;
+        (function() {showBlock("ManualIP",false);})();function checkVaildRange(checkID,start,end) {var checkElement = document.getElementById(checkID);var checkValue = checkElement.value;if ((checkValue < start) || (checkValue >end)) {alert("Range is:" + start + "~" + end);checkElement.style.border = "thick solid #0000FF";setTimeout(function(){checkElement.focus();}, 1);return 1;}else {checkElement.style.border = "";return 0;}}function checkVaildText(checkID,message) {var checkElement = document.getElementById(checkID);var checkValue = checkElement.value;if (checkValue == "") {alert(message);checkElement.style.border = "thick solid #0000FF";setTimeout(function(){checkElement.focus();}, 1);return 1;}else {checkElement.style.border = "";return 0;}}function ValueFillTo(fromID,toID) {var toElement = document.getElementById("SSIDName");var fromValue = document.getElementById(fromID).value;if (!(fromValue == "*-*")) {toElement.value = fromValue;toElement.focus();}}function showBlock(showID,show) {if (show) {document.getElementById(showID).style.display = "";dhcpAuto = 0;}else {dhcpAuto = 1;document.getElementById(showID).style.display = "none";}}function checkAllField(e) {if (checkVaildText("SSIDName","SSID Name is empty") == 1) {return false;}if (checkVaildText("SSIDPassowrd","SSID Password is empty") == 1) {return false;}console.log("dhcpAuto:" + dhcpAuto);if (dhcpAuto == 1) {return true;}//if (checkVaildRange("ip1",1,255) == 1){return false}if (checkVaildRange("ip2",1,255) == 1){return false}if (checkVaildRange("ip3",1,255) == 1){return false}if (checkVaildRange("ip4",1,255) == 1){return false}//if (checkVaildRange("gw1",1,255) == 1){return false}if (checkVaildRange("gw2",1,255) == 1){return false}if (checkVaildRange("gw3",1,255) == 1){return false}if (checkVaildRange("gw4",1,255) == 1){return false}//if (checkVaildRange("sn1",1,255) == 1){return false}if (checkVaildRange("sn2",1,255) == 1){return false}if (checkVaildRange("sn3",1,255) == 1){return false}if (checkVaildRange("sn4",1,255) == 1){return false;}if (checkVaildRange("dns1",1,255) == 1){return false}if (checkVaildRange("dns2",1,255) == 1){return false}if (checkVaildRange("dns3",1,255) == 1){return false}if (checkVaildRange("dns4",1,255) == 1){return false}return true;}
+    </script>
+</body>
+
+</html>

@@ -1,11 +1,14 @@
 
 #include <ESP8266WebServer.h>
 #include "Configure_index.h"
+#include "Configure_header.h"
+
 String st;
 String content;
 ESP8266WebServer Pserver(80);
 #define Configure_Server_P Pserver
 //external Configure_Server_P
+WIFI_SETTINGS ws;
 
 void webConfigureWifi() {
   configureBegin();
@@ -20,7 +23,8 @@ void webConfigureWifi() {
       }
   }
 	setupAP();
-	setupWeb();  
+	setupWeb();
+	ws  = getConfigureStruct();
 }
 
 void webConfigureWifiHandle() {
@@ -92,8 +96,8 @@ void createWebServer()
         content.replace("{SIDOPT}",st);
         content.replace("{LIP}",lipStr);
         content.replace("{LGW}",gwStr);
-        content.replace("{SI}",configureReadSSIDName());
-        content.replace("{SIP}",configureReadSSIDPassword());
+        content.replace("{SI}",ws.SSID);
+        content.replace("{SIP}",ws.SSID_PASSWORD);
         if (WiFi.status() == WL_CONNECTED) {
 			content.replace("{STATE}","CONNECTED");
 		}else {
@@ -133,7 +137,7 @@ void createWebServer()
 			Serial.println("clearing eeprom");
 			sendHtmlPageWithRedirectByTimer("/","Clearing the EEPROM and reset to boot");
 		configureClear();
-		configureCommit();
+		configureCommit(ws);
 		ESP.restart();
     });
 

@@ -1,18 +1,6 @@
 
 #include <EEPROM.h>
-
-typedef struct WIFI_SETTINGS_s {
-	char SETTING_DATA_PREFIX[3];
-	byte NEED_FACTORY;
-	char SSID[33];
-	char SSID_PASSWORD[33];
-	char SPACE[2];
-	byte DHCPAUTO;
-	byte IP[4];
-	byte GW[4];
-	byte DNS[4];
-}WIFI_SETTINGS;
-
+#include "Configure_header.h"
 
 WIFI_SETTINGS wifi_settings;
 
@@ -21,13 +9,23 @@ WIFI_SETTINGS wifi_settings;
 
 void configureBegin() {
 	EEPROM.begin(512);
-	strcpy(wifi_settings.SETTING_DATA_PREFIX,DEF_WIFI_SETTING_PREFIX);
 	checkPrefix();
 }
 
 
 void configureCommit() {
 	EEPROM.commit();
+}
+
+struct  WIFI_SETTINGS_s getConfigureStruct() {
+	int count = EEPROM_readAnything(DEF_WIFI_SETTING_START_ADDRESS, wifi_settings);
+	return wifi_settings;
+}
+
+void configureStruct(WIFI_SETTINGS_s &ws) {
+	wifi_settings = ws;
+	int count = EEPROM_writeAnything(DEF_WIFI_SETTING_START_ADDRESS, wifi_settings);
+	configureCommit();
 }
 
 void checkPrefix() {

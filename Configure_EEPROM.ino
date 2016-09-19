@@ -5,7 +5,7 @@
 WIFI_SETTINGS wifi_settings;
 
 #define DEF_WIFI_SETTING_START_ADDRESS 200
-#define DEF_WIFI_SETTING_PREFIX "W-B"
+#define DEF_WIFI_SETTING_PREFIX "W-A"
 
 void configureBegin() {
 	EEPROM.begin(512);
@@ -15,6 +15,7 @@ void configureBegin() {
 
 void configureCommit() {
 	EEPROM.commit();
+	configurePrints(wifi_settings);
 }
 
 struct  WIFI_SETTINGS_s getConfigureStruct() {
@@ -24,8 +25,54 @@ struct  WIFI_SETTINGS_s getConfigureStruct() {
 
 void configureStruct(WIFI_SETTINGS_s &ws) {
 	wifi_settings = ws;
-	int count = EEPROM_writeAnything(DEF_WIFI_SETTING_START_ADDRESS, wifi_settings);
-	configureCommit();
+	int count = EEPROM_writeAnything(DEF_WIFI_SETTING_START_ADDRESS, ws);
+}
+
+void configurePrints(WIFI_SETTINGS_s &ws) {
+	Serial.println("==configurePrints==");
+	Serial.print("SSID:");
+	Serial.println(String(ws.SSID));
+	Serial.print("PASSWORD:");
+	Serial.println(String(ws.SSID_PASSWORD));
+	Serial.print("DHCPAUTO:");
+	Serial.println(ws.DHCPAUTO,DEC);
+	Serial.print("IP:");
+	Serial.print(ws.IP[0],DEC);
+	Serial.print(".");
+	Serial.print(ws.IP[1],DEC);
+	Serial.print(".");
+	Serial.print(ws.IP[2],DEC);
+	Serial.print(".");
+	Serial.print(ws.IP[3],DEC);
+	Serial.println(" ");
+	Serial.print("GW:");
+	Serial.print(ws.GW[0],DEC);
+	Serial.print(".");
+	Serial.print(ws.GW[1],DEC);
+	Serial.print(".");
+	Serial.print(ws.GW[2],DEC);
+	Serial.print(".");
+	Serial.print(ws.GW[3],DEC);
+	Serial.println(" ");
+	Serial.print("MASK:");
+	Serial.print(ws.SNET[0],DEC);
+	Serial.print(".");
+	Serial.print(ws.SNET[1],DEC);
+	Serial.print(".");
+	Serial.print(ws.SNET[2],DEC);
+	Serial.print(".");
+	Serial.print(ws.SNET[3],DEC);
+	Serial.println(" ");
+	Serial.print("DNS:");
+	Serial.print(ws.DNS[0],DEC);
+	Serial.print(".");
+	Serial.print(ws.DNS[1],DEC);
+	Serial.print(".");
+	Serial.print(ws.DNS[2],DEC);
+	Serial.print(".");
+	Serial.print(ws.DNS[3],DEC);
+	Serial.println(" ");
+
 }
 
 void checkPrefix() {
@@ -40,11 +87,16 @@ void checkPrefix() {
 }
 
 void configureClear() {
-	WIFI_SETTINGS wifi_clear;
+	WIFI_SETTINGS wifi_clear = {0};
 	strcpy(wifi_clear.SETTING_DATA_PREFIX,DEF_WIFI_SETTING_PREFIX);
 	wifi_clear.NEED_FACTORY = 1;
 	memset(wifi_clear.SSID,0,33);
 	memset(wifi_clear.SSID_PASSWORD,0,33);
+	memset(wifi_clear.IP,0,4);
+	memset(wifi_clear.GW,0,4);
+	memset(wifi_clear.SNET,0,4);
+	memset(wifi_clear.DNS,0,4);
+	wifi_clear.DHCPAUTO = 1;
 	int count = EEPROM_writeAnything(DEF_WIFI_SETTING_START_ADDRESS, wifi_clear);
 }
 

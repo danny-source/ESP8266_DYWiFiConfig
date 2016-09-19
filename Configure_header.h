@@ -11,6 +11,7 @@ typedef struct WIFI_SETTINGS_s {
 	byte DHCPAUTO;
 	byte IP[4];
 	byte GW[4];
+	byte SNET[4];
 	byte DNS[4];
 }WIFI_SETTINGS,*WIFI_SETTINGS_PTR;
 

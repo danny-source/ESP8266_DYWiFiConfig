@@ -3,24 +3,24 @@
 
 <head>
     <style>
-        <!--http: //www.456bereastreet.com/lab/fieldset-border-radius-box-shadow/-->			
+        <!--http: //www.456bereastreet.com/lab/fieldset-border-radius-box-shadow/-->
         fieldset {
             padding-top: 10px;
             border: 1px solid #666;
             border-radius: 8px;
         }
-        
+
         legend {
             float: left;
             margin-top: -20px;
         }
-        
+
         legend {
             padding: 1px 1px;
             background: #fff;
             /* For better legibility against the box-shadow */
         }
-        
+
         legend+* {
             clear: both;
         }
@@ -30,20 +30,26 @@
 <body>
 
     <div>
-        Wifi Direct IP:{APIP}
+        Wifi Direct IP:{A-IP}
     </div>
     <p></p>
     <fieldset>
         <legend>Wifi Setting</legend>
-        SSID Name:{SI}
-        <P></P>
-        SSID Password:{SIP}
-        <P>Status:{STATE}</P>
-        <P></P>
+        <P>SSID Name:{S-SSID}</P>
+        <P>SSID Password:{S-PWD}</P>
+        <P>Status:{S-STATUS}
+		<form method='get' action='reconnect' id="form-reconnect" name="form-reconnect">
+			<input type="submit" value="Reconnect" style="font-size:110%">
+			<input type="hidden" name ="reconnect" value="1">
+		</form>
+		</br>
+        </P>
         <fieldset>
             <legend>IP</legend>
-            <p>IP:{LIP}</p>
-            <p>GW:{LGW}</p>
+            <p>DHCP:{S-DHCP}</p>
+            <p>IP:{S-IP}</p>
+            <p>GW:{S-GW}</p>
+            <p>DNS:{S-DNS}</p>
         </fieldset>
     </fieldset>
 
@@ -56,8 +62,8 @@
             <P></P>
             SSID <select id="SSIDFastSelection" name="ssids" onchange='ValueFillTo(this.id,"SSIDName")' style="width:90%;font-size:110%">
     <option value="*-*">===SELECT===</option>
-    <option value="Double">*Double</option>
-    {SIDOPT}
+    <!--<option value="Double">*Double</option>-->
+    {C-SSIDOPT}
   </select>
             <P></P>
             <p>
@@ -142,6 +148,10 @@
                 return 0;
             }
         }
+        function setIDValue(setID,value) {
+            var setElement = document.getElementById(setID);
+            setElement.value = value;
+		}
 
         function checkVaildText(checkID, message) {
             var checkElement = document.getElementById(checkID);
@@ -187,6 +197,22 @@
             }
             console.log("dhcpAuto:" + dhcpAuto);
             if (dhcpAuto == 1) {
+				setIDValue("ip1","0");
+				setIDValue("ip2","0");
+				setIDValue("ip3","0");
+				setIDValue("ip4","0");
+				setIDValue("gw1","0");
+				setIDValue("gw2","0");
+				setIDValue("gw3","0");
+				setIDValue("gw4","0");
+				setIDValue("sn1","0");
+				setIDValue("sn2","0");
+				setIDValue("sn3","0");
+				setIDValue("sn4","0");
+				setIDValue("dns1","0");
+				setIDValue("dns2","0");
+				setIDValue("dns3","0");
+				setIDValue("dns4","0");
                 return true;
             }
             if (checkVaildRange("ip1", 1, 255) == 1) {
@@ -213,16 +239,16 @@
             if (checkVaildRange("gw4", 1, 255) == 1) {
                 return false
             }
-            if (checkVaildRange("sn1", 1, 255) == 1) {
+            if (checkVaildRange("sn1", 0, 255) == 1) {
                 return false
             }
-            if (checkVaildRange("sn2", 1, 255) == 1) {
+            if (checkVaildRange("sn2", 0, 255) == 1) {
                 return false
             }
-            if (checkVaildRange("sn3", 1, 255) == 1) {
+            if (checkVaildRange("sn3", 0, 255) == 1) {
                 return false
             }
-            if (checkVaildRange("sn4", 1, 255) == 1) {
+            if (checkVaildRange("sn4", 0, 255) == 1) {
                 return false
             }
             if (checkVaildRange("dns1", 1, 255) == 1) {

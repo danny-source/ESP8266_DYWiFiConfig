@@ -157,7 +157,9 @@ void createWebServer()
           Configure_Server_P.send(statusCode, "application/json", content);
 		}
 
+		memset(ws.SSID,0,33);
         strcpy(ws.SSID,Configure_Server_P.arg("ssid").c_str());
+        memset(ws.SSID_PASSWORD,0,33);
 		strcpy(ws.SSID_PASSWORD,Configure_Server_P.arg("pass").c_str());
 
 		ws.DHCPAUTO = (byte)Configure_Server_P.arg("dhcpAuto").toInt();
@@ -226,7 +228,7 @@ void sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message)
 
 bool setWifi(String essid, String epassword) {
   int c = 0;
-  if ((essid.length()<=0) || (epassword.length()<=0)) {
+  if (essid.length()<=0) {
 	  return false;
   }
 
@@ -235,8 +237,11 @@ bool setWifi(String essid, String epassword) {
 		  return true;
 	  }
   }
-
-  WiFi.begin(essid.c_str(), epassword.c_str());
+	if ((epassword == "") || epassword.length() <=0) {
+		WiFi.begin(essid.c_str(), NULL);
+	}else {
+		WiFi.begin(essid.c_str(), epassword.c_str());
+	}
   Serial.println("Waiting for Wifi to connect");
   while ( c < 30 ) {
     if (WiFi.status() == WL_CONNECTED) {

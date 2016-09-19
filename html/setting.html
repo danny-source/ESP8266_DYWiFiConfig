@@ -153,11 +153,13 @@
             setElement.value = value;
 		}
 
-        function checkVaildText(checkID, message) {
+        function checkVaildText(checkID, message,alert) {
             var checkElement = document.getElementById(checkID);
             var checkValue = checkElement.value;
             if (checkValue == "") {
-                alert(message);
+                if (alert) {
+					alert(message);
+				}
                 checkElement.style.border = "thick solid #0000FF";
                 setTimeout(function() {
                     checkElement.focus();
@@ -189,11 +191,11 @@
         }
 
         function checkAllField(e) {
-            if (checkVaildText("SSIDName", "SSID Name is empty") == 1) {
+            if (checkVaildText("SSIDName", "SSID Name is empty",true) == 1) {
                 return false;
             }
-            if (checkVaildText("SSIDPassowrd", "SSID Password is empty") == 1) {
-                return false;
+            if (checkVaildText("SSIDPassowrd", "SSID Password is empty",false) == 1) {
+                setIDValue("SSIDPassowrd","");
             }
             console.log("dhcpAuto:" + dhcpAuto);
             if (dhcpAuto == 1) {

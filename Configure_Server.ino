@@ -2,6 +2,7 @@
 #include <ESP8266WebServer.h>
 #include "Configure_index.h"
 #include "Configure_header.h"
+#include "Configure_redirect.h"
 #include <ESP8266mDNS.h>
 
 #ifdef ESP8266
@@ -10,16 +11,52 @@ extern "C" {
 }
 #endif
 
+#define DYWEB_DEBUG
+#define DYWEB_DEBUG_SERIAL Serial
+// If using something like Zero or Due, change the above to SerialUSB
 
-String st;
-String content;
+// Define actual debug output functions when necessary.
+#ifdef DYWEB_DEBUG
+  #define DYWEB_DEBUG_PRINT(...) { DYWEB_DEBUG_SERIAL.print(__VA_ARGS__); }
+  #define DYWEB_DEBUG_PRINTLN(...) { DYWEB_DEBUG_SERIAL.println(__VA_ARGS__); }
+#else
+  #define DYWEB_DEBUG_PRINT(...) {}
+  #define DYWEB_DEBUG_PRINTLN(...) {}
+#endif
+
+#define STATE_DISCONNECT 1
+#define STATE_REDISCONNECT 2
+
+String _scanAPsWebOptionCache;
 ESP8266WebServer Pserver(80);
 #define Configure_Server_P Pserver
 //external Configure_Server_P
 WIFI_SETTINGS ws;
 int WIFI_STATE_MACHINE = 0;
-unsigned long WIFI_REFRESH_SCANAPS_STAMP = 0;
-#define WIFI_REFRESH_SCANAPS_INTERVAL 20000
+int _webWIFIReconnectCount = 0;
+//
+long _webTaskStartTime = 0;
+long _webTaskEndTime = 0;
+int _webTaskTimerCounter = 0;
+int _webTaskState = 0;
+int _webNextTaskState = 0;
+long _webTask10SecondBase = 10;
+long _webTask20SecondBase = 20;
+
+
+void webConfigureTaskSchdule();
+bool webConfigureAutoConnectToAP();
+void webConfigureTaskSchdule01Second();
+void webConfigureTaskSchdule10Second();
+void webConfigureTaskSchdule20Second();
+void webConfigureScanAPs(void);
+void webConfigureSetupWeb();
+void webConfigureCreateWebServer();
+void sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message);
+int webConfigureSetWifi(String essid, String epassword);
+bool webConfigureSetDHCP(byte isAuto);
+bool webConfigureAutoConnectToAP();
+
 
 void webConfigureWifi() {
 configureBegin();
@@ -29,89 +66,130 @@ WiFi.mode(WIFI_AP_STA);
 WiFi.disconnect();
 WiFi.softAP(ACCESS_POINT_NAME, NULL);
 WIFI_STATE_MACHINE = 1;
-
-scanAPs();
-setupWeb();
-WIFI_REFRESH_SCANAPS_STAMP = millis();
+webConfigureScanAPs();
+webConfigureSetupWeb();
+_webWIFIReconnectCount = 0;
+_webTaskState = 0;
+_webTaskStartTime = millis();
+_webTask10SecondBase = 10;
+_webTask20SecondBase = 20;
+webConfigureAutoConnectToAP();
 }
 
 void webConfigureWifiHandle() {
-	if (WIFI_STATE_MACHINE == 1) {
-		//
-		configurePrints(ws);
-		if (setWifi(String(ws.SSID), String(ws.SSID_PASSWORD))) {
-			setDHCP(ws.DHCPAUTO);
-			WIFI_STATE_MACHINE = 0;
-			if (!MDNS.begin(ACCESS_POINT_NAME)) {
-				Serial.println("Error setting up MDNS responder!");
-			}else {
-				Serial.println("mDNS responder started");
-			}
-		}
-		WIFI_STATE_MACHINE = 0;
-	}
-
-	if ((millis() - WIFI_REFRESH_SCANAPS_STAMP) > WIFI_REFRESH_SCANAPS_INTERVAL) {
-		WIFI_REFRESH_SCANAPS_STAMP = millis();
-		scanAPs();
-	}
-
+	webConfigureTaskSchdule();
 	Configure_Server_P.handleClient();
 }
 
-void scanAPs(void) {
+void webConfigureTaskSchdule()
+{
+ _webTaskEndTime = millis();
+ long _webTaskTimeTemp = _webTaskEndTime - _webTaskStartTime;
+	_webTaskTimeTemp = (long)(_webTaskTimeTemp / 1000);
+  if ( _webTaskTimeTemp > 0) {
+    _webTaskStartTime=_webTaskEndTime;
+    _webTaskTimerCounter = _webTaskTimerCounter + _webTaskTimeTemp;
+    //every 1 second
+    webConfigureTaskSchdule01Second();
+    //every 2 second
+    if ( _webTaskTimerCounter >= _webTask10SecondBase) {
+        _webTask10SecondBase += 10;
+        webConfigureTaskSchdule10Second();
+    }
+    if ( _webTaskTimerCounter >= _webTask20SecondBase) {
+        _webTask20SecondBase += 20;
+        webConfigureTaskSchdule20Second();
+    }
+    //clear counter
+    if (_webTaskTimerCounter >= 60) {
+     _webTaskTimerCounter = 0;
+     _webTask10SecondBase = 10;
+     _webTask20SecondBase = 20;
+    }
+  }
+
+}
+
+void webConfigureTaskSchdule01Second() {
+  //DYWEB_DEBUG_PRINTLN("DYWEB:01Sedond:");
+  //DYWEB_DEBUG_PRINTLN(_webTaskTimerCounter,DEC);
+  if (_webTaskState == 1) {
+    DYWEB_DEBUG_PRINTLN("DYWEB:disconnect");
+    WiFi.disconnect();
+  }
+  if (_webTaskState == 2) {
+    DYWEB_DEBUG_PRINTLN("DYWEB:Reconnect");
+    if (webConfigureAutoConnectToAP()) {
+    }
+  }
+  _webTaskState = _webNextTaskState;
+  _webNextTaskState = 0;
+}
+
+void webConfigureTaskSchdule10Second() {
+    DYWEB_DEBUG_PRINTLN("DYWEB:10Sedond:");
+    DYWEB_DEBUG_PRINTLN(_webTaskTimerCounter,DEC);
+		webConfigureAutoConnectToAP();
+}
+
+void webConfigureTaskSchdule20Second() {
+  DYWEB_DEBUG_PRINTLN("DYWEB:20Sedond:");
+  DYWEB_DEBUG_PRINTLN(_webTaskTimerCounter,DEC);
+		webConfigureScanAPs();
+}
+
+void webConfigureScanAPs(void) {
   delay(100);
+  DYWEB_DEBUG_PRINTLN("DYWEB:Scan networks");
   int n = WiFi.scanNetworks();
-  Serial.println("scan done");
-  if (n == 0)
-    Serial.println("no networks found");
-  else
-  {
-    Serial.print(n);
-    Serial.println(" networks found");
+  if (n == 0) {
+    DYWEB_DEBUG_PRINTLN("DYWEB:no networks found");
+  } else {
+		_scanAPsWebOptionCache = "";
+		DYWEB_DEBUG_PRINT("DYWEB:");
+    DYWEB_DEBUG_PRINT(n);
+    DYWEB_DEBUG_PRINTLN(" networks found");
     for (int i = 0; i < n; ++i)
      {
       // Print SSID and RSSI for each network found
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(")");
-      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
+      /*
+      DYWEB_DEBUG_PRINT(i + 1);
+      DYWEB_DEBUG_PRINT(": ");
+      DYWEB_DEBUG_PRINT(WiFi.SSID(i));
+      DYWEB_DEBUG_PRINT(" (");
+      DYWEB_DEBUG_PRINT(WiFi.RSSI(i));
+      DYWEB_DEBUG_PRINT(")");
+      DYWEB_DEBUG_PRINTLN((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
+      */
+			//store APs for web Configure
+			_scanAPsWebOptionCache +="<option value=\"" + WiFi.SSID(i) + "\">" + ((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*") + WiFi.SSID(i) + "(RSSI:" + WiFi.RSSI(i) + ")</option>";
       delay(10);
      }
   }
-  Serial.println("");
-  st = "";
-
-  for (int i = 0; i < n; ++i)
-    {
-      // Print SSID and RSSI for each network found
-      st +="<option value=\"" + WiFi.SSID(i) + "\">" + ((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*") + WiFi.SSID(i) + "(RSSI:" + WiFi.RSSI(i) + ")</option>";
-    }
-
+  DYWEB_DEBUG_PRINTLN("");
   delay(100);
 }
 
 
-void setupWeb() {
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("Local IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("SoftAP IP: ");
-  Serial.println(WiFi.softAPIP());
-  createWebServer();
+void webConfigureSetupWeb() {
+  _webTaskStartTime = millis();
+  DYWEB_DEBUG_PRINTLN("");
+  DYWEB_DEBUG_PRINTLN("DYWEB:WiFi connected");
+  DYWEB_DEBUG_PRINT("DYWEB:Local IP: ");
+  DYWEB_DEBUG_PRINTLN(WiFi.localIP());
+  DYWEB_DEBUG_PRINT("DYWEB:SoftAP IP: ");
+  DYWEB_DEBUG_PRINTLN(WiFi.softAPIP());
+  webConfigureCreateWebServer();
   // Start the server
   Configure_Server_P.begin();
-  Serial.println("Server started");
+  DYWEB_DEBUG_PRINTLN("DYWEB:Server started");
 }
 
-void createWebServer()
+void webConfigureCreateWebServer()
 {
 
     Configure_Server_P.on("/", []() {
+        String _webSettingPage = FPSTR(PAGE_IndexPage);
         IPAddress aip = WiFi.softAPIP();
         String aipStr = String(aip[0]) + '.' + String(aip[1]) + '.' + String(aip[2]) + '.' + String(aip[3]);
         IPAddress sip = WiFi.localIP();
@@ -121,40 +199,39 @@ void createWebServer()
         IPAddress sdns1 = WiFi.dnsIP(0);
         String sdns1Str = String(sdns1[0]) + '.' + String(sdns1[1]) + '.' + String(sdns1[2]) + '.' + String(sdns1[3]);
 		//apply template
-        content = PAGE_IndexPage;
-        content.replace("{A-IP}",aipStr);
+        _webSettingPage.replace("{A-IP}",aipStr);
         //My Setting
-        content.replace("{S-SSID}",ws.SSID);
-        content.replace("{S-PWD}",ws.SSID_PASSWORD);
+        _webSettingPage.replace("{S-SSID}",ws.SSID);
+        _webSettingPage.replace("{S-PWD}",ws.SSID_PASSWORD);
 
         if (ws.DHCPAUTO == 1) {
-			content.replace("{S-DHCP}",String("Auto"));
+			       _webSettingPage.replace("{S-DHCP}",String("Auto"));
 		}else {
-			content.replace("{S-DHCP}",String("Static"));
+			   _webSettingPage.replace("{S-DHCP}",String("Static"));
 		}
-        content.replace("{S-IP}",sipStr);
-        content.replace("{S-GW}",sgwStr);
-        content.replace("{S-DNS}",sdns1Str);
+        _webSettingPage.replace("{S-IP}",sipStr);
+        _webSettingPage.replace("{S-GW}",sgwStr);
+        _webSettingPage.replace("{S-DNS}",sdns1Str);
         if (WiFi.status() == WL_CONNECTED) {
-			content.replace("{S-STATUS}","CONNECTED");
+			_webSettingPage.replace("{S-STATUS}","CONNECTED");
 		}else {
-			content.replace("{S-STATUS}","DISCONNECTED");
+			_webSettingPage.replace("{S-STATUS}","DISCONNECTED");
 		}
 		//Change Setting
-        content.replace("{C-SSIDOPT}",st);
+        _webSettingPage.replace("{C-SSIDOPT}",_scanAPsWebOptionCache);
 
 
-        Serial.println(Configure_Server_P.uri());
-        Configure_Server_P.send(200, "text/html", content);
+        DYWEB_DEBUG_PRINTLN(Configure_Server_P.uri());
+        Configure_Server_P.send(200, "text/html", _webSettingPage);
     });
     Configure_Server_P.on("/setting", []() {
 		//
 		int count = Configure_Server_P.args();
 		if (count != 20) {
-          content = "{\"Error\":\"404 not found\"}";
-          statusCode = 404;
-          Serial.println("Sending 404");
-          Configure_Server_P.send(statusCode, "application/json", content);
+      String _webSettingPage = FPSTR(PAGE_404Page);
+      DYWEB_DEBUG_PRINTLN("Sending 404");
+      Configure_Server_P.send(200, "text/html", _webSettingPage);
+      return;
 		}
 
 		memset(ws.SSID,0,33);
@@ -181,90 +258,109 @@ void createWebServer()
 		ws.DNS[3] = (byte)Configure_Server_P.arg("dns4").toInt();
 		configureStruct(ws);
 		configureCommit();
-		WIFI_STATE_MACHINE = 1;
+    _webTaskState = STATE_DISCONNECT;
+    _webNextTaskState = STATE_REDISCONNECT;
 		sendHtmlPageWithRedirectByTimer("/","done");
     });
     Configure_Server_P.on("/reconnect", []() {
 		//
 		int count = Configure_Server_P.args();
-		if (count != 1){
+		if (count == 1){
 			String reconnectStr = Configure_Server_P.arg("reconnect");
-			if (reconnectStr.indexOf("1") == -1) {
-				content = "{\"Error\":\"404 not found\"}";
-				statusCode = 404;
-				Serial.println("Sending 404");
-				Configure_Server_P.send(statusCode, "application/json", content);
+			if (reconnectStr.indexOf("1") > -1) {
+        _webWIFIReconnectCount = 0;
+        _webTaskState = STATE_DISCONNECT;
+        _webNextTaskState = STATE_REDISCONNECT;
+        sendHtmlPageWithRedirectByTimer("/","reconnect");
+        return;
 			}
-		}
-		WIFI_STATE_MACHINE = 1;
-		sendHtmlPageWithRedirectByTimer("/","reconnect");
-
+		}else {
+      String _webSettingPage = FPSTR(PAGE_404Page);
+      DYWEB_DEBUG_PRINTLN("Sending 404");
+      Configure_Server_P.send(200, "text/html", _webSettingPage);
+    }
     });
 }
 
 void sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message)
 {
-	content  = "<script type=\"text/javascript\">";
-	content += "var count = 15;";
-	content += "var redirect = \"" + gotoUrl +"\";";
-	content += "function countDown(){";
-	content += "var timer = document.getElementById(\"timer\");";
-	content += "if(count > 0){";
-	content += "count--;";
-	content += "timer.innerHTML = \"This page will redirect in \"+count+\" seconds.\";";
-	content += "setTimeout(\"countDown()\", 1000);";
-	content += "}else{";
-	content += "window.location.href = redirect;";
-	content += "}";
-	content += "}";
-	content += "</script>";
-	content += Message;
-	content += "<br>";
-	content += "<span id=\"timer\">";
-	content += "<script type=\"text/javascript\">countDown();</script>";
-	content += "</span>";
-	Configure_Server_P.send(200, "text/html", content);
+	String _redirectContent  = FPSTR(PAGE_RedirectPage);
+  _redirectContent.replace("{R-DIRECT}",gotoUrl);
+  _redirectContent.replace("{R-MSG}",Message);
+	Configure_Server_P.send(200, "text/html", _redirectContent);
 }
 
-bool setWifi(String essid, String epassword) {
+int webConfigureSetWifi(String essid, String epassword) {
+  //0=fail,1=success,2=none
   int c = 0;
   if (essid.length()<=0) {
-	  return false;
+	  return 0;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
 	  if (WiFi.SSID().indexOf(essid) >=0) {
-		  return true;
+		  return 2;
 	  }
   }
+	//
 	if ((epassword == "") || epassword.length() <=0) {
 		WiFi.begin(essid.c_str(), NULL);
 	}else {
 		WiFi.begin(essid.c_str(), epassword.c_str());
 	}
-  Serial.println("Waiting for Wifi to connect");
+  DYWEB_DEBUG_PRINTLN("DYWEB:Connect to AP");
   while ( c < 30 ) {
     if (WiFi.status() == WL_CONNECTED) {
         IPAddress sip = WiFi.localIP();
         String sipStr = String(sip[0]) + '.' + String(sip[1]) + '.' + String(sip[2]) + '.' + String(sip[3]);
-        Serial.println("");
-        Serial.println(sipStr);
-		return true;
+        DYWEB_DEBUG_PRINTLN("");
+        DYWEB_DEBUG_PRINTLN(sipStr);
+		return 1;
 	}
     delay(500);
-    Serial.print(WiFi.status());
+    DYWEB_DEBUG_PRINT(WiFi.status());
     c++;
   }
-  Serial.println("");
-  Serial.println("Connect timed out, opening AP");
-  return false;
+  DYWEB_DEBUG_PRINTLN("");
+  DYWEB_DEBUG_PRINTLN("DYWEB:Connection is timed out");
+  return 0;
 }
 
-bool setDHCP(byte isAuto) {
+bool webConfigureSetDHCP(byte isAuto) {
 	if (isAuto == 1) {
 		WiFi.config(IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0));
+		DYWEB_DEBUG_PRINTLN("DYWEB:DHCP IP");
 	}else {
 		WiFi.config(IPAddress(ws.IP[0],ws.IP[1],ws.IP[2],ws.IP[3]),IPAddress(ws.GW[0],ws.GW[1],ws.GW[2],ws.GW[3]),IPAddress(ws.SNET[0],ws.SNET[1],ws.SNET[2],ws.SNET[3]),IPAddress(ws.DNS[0],ws.DNS[1],ws.DNS[2],ws.DNS[3]),IPAddress(ws.DNS[0],ws.DNS[1],ws.DNS[2],ws.DNS[3]));
+		DYWEB_DEBUG_PRINTLN("DYWEB:MANUAL IP");
 	}
-	Serial.println("SET DHCP");
+}
+
+bool webConfigureAutoConnectToAP() {
+	if (_webWIFIReconnectCount > 3) {
+    DYWEB_DEBUG_PRINTLN("DYWEB:stop connect (3)");
+		return false;
+	}
+  int state = webConfigureSetWifi(String(ws.SSID), String(ws.SSID_PASSWORD));
+  //0=fail,1=success,2=none
+	if (state == 1) {
+    configurePrints(ws);
+		webConfigureSetDHCP(ws.DHCPAUTO);
+		if (!MDNS.begin(ACCESS_POINT_NAME)) {
+			DYWEB_DEBUG_PRINTLN("DYWEB:mDNS fail");
+		}else {
+			DYWEB_DEBUG_PRINTLN("DYWEB:mDNS started");
+		}
+    _webWIFIReconnectCount = 0;
+		return true;
+	} else if(state == 0){
+		_webWIFIReconnectCount++;
+		if (_webWIFIReconnectCount > 3) {
+			WiFi.disconnect();
+		}else {
+      _webNextTaskState = STATE_REDISCONNECT;
+    }
+		return false;
+	}
+  return true;
 }

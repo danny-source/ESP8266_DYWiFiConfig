@@ -3,7 +3,6 @@
 
 <head>
     <style>
-        <!--http: //www.456bereastreet.com/lab/fieldset-border-radius-box-shadow/-->
         fieldset {
             padding-top: 10px;
             border: 1px solid #666;
@@ -24,6 +23,24 @@
         legend+* {
             clear: both;
         }
+        .button {<!DOCTYPE html>
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            overflow: visible;
+            text-transform: none;
+            -webkit-appearance: button;
+            cursor: pointer;
+            button::-moz-focus-inner;
+        }
+        .button:hover,focus {
+          color: #fff;
+          background-color: #3c763d;
+          border-color: #3c763d;
+        }
     </style>
 </head>
 
@@ -38,11 +55,11 @@
         <P>SSID Name:{S-SSID}</P>
         <P>SSID Password:{S-PWD}</P>
         <P>Status:{S-STATUS}
-		<form method='get' action='reconnect' id="form-reconnect" name="form-reconnect">
-			<input type="submit" value="Reconnect" style="font-size:110%">
-			<input type="hidden" name ="reconnect" value="1">
-		</form>
-		</br>
+            <form method='get' action='reconnect' id="form-reconnect" name="form-reconnect">
+                <input type="submit" class="button" value="Reconnect" style="font-size:110%">
+                <input type="hidden" name="reconnect" value="1">
+            </form>
+            </br>
         </P>
         <fieldset>
             <legend>IP</legend>
@@ -123,7 +140,7 @@
                         </table>
                     </fieldset>
                 </div>
-                <input type="submit">
+                <input type="submit" class="button" value="Save" >
             </p>
         </fieldset>
     </form>
@@ -148,18 +165,19 @@
                 return 0;
             }
         }
-        function setIDValue(setID,value) {
+
+        function setIDValue(setID, value) {
             var setElement = document.getElementById(setID);
             setElement.value = value;
-		}
+        }
 
-        function checkVaildText(checkID, message,alert) {
+        function checkVaildText(checkID, message, alert) {
             var checkElement = document.getElementById(checkID);
             var checkValue = checkElement.value;
             if (checkValue == "") {
                 if (alert) {
-					alert(message);
-				}
+                    alert(message);
+                }
                 checkElement.style.border = "thick solid #0000FF";
                 setTimeout(function() {
                     checkElement.focus();
@@ -191,30 +209,30 @@
         }
 
         function checkAllField(e) {
-            if (checkVaildText("SSIDName", "SSID Name is empty",true) == 1) {
+            if (checkVaildText("SSIDName", "SSID Name is empty", true) == 1) {
                 return false;
             }
-            if (checkVaildText("SSIDPassowrd", "SSID Password is empty",false) == 1) {
-                setIDValue("SSIDPassowrd","");
+            if (checkVaildText("SSIDPassowrd", "SSID Password is empty", false) == 1) {
+                setIDValue("SSIDPassowrd", "");
             }
             console.log("dhcpAuto:" + dhcpAuto);
             if (dhcpAuto == 1) {
-				setIDValue("ip1","0");
-				setIDValue("ip2","0");
-				setIDValue("ip3","0");
-				setIDValue("ip4","0");
-				setIDValue("gw1","0");
-				setIDValue("gw2","0");
-				setIDValue("gw3","0");
-				setIDValue("gw4","0");
-				setIDValue("sn1","0");
-				setIDValue("sn2","0");
-				setIDValue("sn3","0");
-				setIDValue("sn4","0");
-				setIDValue("dns1","0");
-				setIDValue("dns2","0");
-				setIDValue("dns3","0");
-				setIDValue("dns4","0");
+                setIDValue("ip1", "0");
+                setIDValue("ip2", "0");
+                setIDValue("ip3", "0");
+                setIDValue("ip4", "0");
+                setIDValue("gw1", "0");
+                setIDValue("gw2", "0");
+                setIDValue("gw3", "0");
+                setIDValue("gw4", "0");
+                setIDValue("sn1", "0");
+                setIDValue("sn2", "0");
+                setIDValue("sn3", "0");
+                setIDValue("sn4", "0");
+                setIDValue("dns1", "0");
+                setIDValue("dns2", "0");
+                setIDValue("dns3", "0");
+                setIDValue("dns4", "0");
                 return true;
             }
             if (checkVaildRange("ip1", 1, 255) == 1) {

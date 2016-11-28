@@ -1,0 +1,6 @@
+DYWiFiConfig	KEYWORD1
+begin	KEYWORD2
+handle	KEYWORD2
+read	KEYWORD2
+write	KEYWORD2
+commit	KEYWORD2

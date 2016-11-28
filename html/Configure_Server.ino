@@ -326,7 +326,7 @@ int webConfigureSetWifi(String essid, String epassword) {
   return 0;
 }
 
-bool webConfigureSetDHCP(byte isAuto) {
+bool setDHCP(byte isAuto) {
 	if (isAuto == 1) {
 		WiFi.config(IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0));
 		DYWEB_DEBUG_PRINTLN("DYWEB:DHCP IP");
@@ -336,29 +336,29 @@ bool webConfigureSetDHCP(byte isAuto) {
 	}
 }
 
-bool webConfigureAutoConnectToAP() {
+bool autoConnectToAP() {
 	if (_webWIFIReconnectCount > 3) {
     DYWEB_DEBUG_PRINTLN("DYWEB:stop connect (3)");
 		return false;
 	}
-  int state = webConfigureSetWifi(String(ws.SSID), String(ws.SSID_PASSWORD));
+  int state = setWifi(String(ws.SSID), String(ws.SSID_PASSWORD));
   //0=fail,1=success,2=none
 	if (state == 1) {
-    configurePrints(ws);
-		webConfigureSetDHCP(ws.DHCPAUTO);
+    //configurePrints(ws);
+		setDHCP(ws.DHCPAUTO);
 		if (!MDNS.begin(ACCESS_POINT_NAME)) {
 			DYWEB_DEBUG_PRINTLN("DYWEB:mDNS fail");
 		}else {
 			DYWEB_DEBUG_PRINTLN("DYWEB:mDNS started");
 		}
-    _webWIFIReconnectCount = 0;
+    _WIFIReconnectCount = 0;
 		return true;
 	} else if(state == 0){
-		_webWIFIReconnectCount++;
+		_WIFIReconnectCount++;
 		if (_webWIFIReconnectCount > 3) {
 			WiFi.disconnect();
 		}else {
-      _webNextTaskState = STATE_REDISCONNECT;
+      _nextTaskState = STATE_REDISCONNECT;
     }
 		return false;
 	}

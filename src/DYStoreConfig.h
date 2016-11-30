@@ -51,7 +51,6 @@ class DYStoreConfig {
 	void checkPrefix();
 	void clear();
 };
-
 //template <class T> int EEPROM_writeAnything(int address, const T &data);
 //template <class T> int EEPROM_readAnything(int address, T &data);
 #endif

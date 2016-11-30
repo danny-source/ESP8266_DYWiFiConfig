@@ -3,16 +3,28 @@
 
 
 */
+ extern "C" {
+#include "spi_flash.h"
+}
+
+#define SPIFFS_END			((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SEC_SIZE
+#define EEPROM_START		SPIFFS_END
+#define DYCFG_START        	(EEPROM_START + 4)
+
+extern "C" uint32_t _SPIFFS_end;
+#define DYEEPROM EEPROM
+
 DYStoreConfig::DYStoreConfig() {
 
 }
 
 void DYStoreConfig::begin(int allocsize,int storeaddress,DYWIFICONFIG_STRUCT *wifconfig_struct) {
 	DYWIFICONFIG_DEBUG_PRINTLN("===begin===");
+	DYWIFICONFIG_DEBUG_PRINTLN(DYCFG_START,DEC);
 	_allocsize = allocsize;
 	_storeaddress = storeaddress;
 	_wificonfig = wifconfig_struct;
-	EEPROM.begin(_allocsize);
+	DYEEPROM.begin(_allocsize);
 	checkPrefix();
 }
 
@@ -42,7 +54,7 @@ template <class T> int DYStoreConfig::read(int address, T &data) {
   DYWIFICONFIG_DEBUG_PRINT("read count:");
   DYWIFICONFIG_DEBUG_PRINTLN(n,DEC);
   for(i = 0, n = sizeof(data); i < n; i++)
-    *p++ = EEPROM.read(address++);
+    *p++ = DYEEPROM.read(address++);
   return i;
 }
 
@@ -53,7 +65,7 @@ template <class T> int DYStoreConfig::write(int address, const T &data) {
   DYWIFICONFIG_DEBUG_PRINT("write count:");
   DYWIFICONFIG_DEBUG_PRINTLN(n,DEC);
   for(i = 0, n = sizeof(data); i < n; i++)
-    EEPROM.write(address++, *p++);
+    DYEEPROM.write(address++, *p++);
   return i;
 }
 
@@ -65,8 +77,8 @@ void DYStoreConfig::commit(DYWIFICONFIG_STRUCT s) {
 	//DYWIFICONFIG_DEBUG_PRINTLN("===commit===");
 	//int count = EEPROM_writeAnything(_storeaddress, s);
 	//description(s);
-	//EEPROM.commit();
-	//EEPROM.begin(_allocsize);
+	//DYEEPROM.commit();
+	//DYEEPROM.begin(_allocsize);
 	commit(&s);
 }
 
@@ -74,7 +86,7 @@ void DYStoreConfig::commit(DYWIFICONFIG_STRUCT_PTR s) {
 	DYWIFICONFIG_DEBUG_PRINTLN("===commit===");
 	int count = write(_storeaddress, *s);
 	description(s);
-	EEPROM.commit();
+	DYEEPROM.commit();
 }
 
 
@@ -193,3 +205,5 @@ void DYStoreConfig::description(DYWIFICONFIG_STRUCT_PTR s) {
 void DYStoreConfig::description() {
 	description(_wificonfig);
 }
+//
+//19*1024

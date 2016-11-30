@@ -7,7 +7,7 @@ DYWiFiConfig::DYWiFiConfig() {
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const char *apname) {
 	_server = server;
-	_storeconfig.begin(512, 200, &_dws);
+	_storeconfig.begin(1024, 900, &_dws);
 	_storeconfig.read();
 	WiFi.mode(WIFI_AP_STA);
 	WiFi.disconnect();
@@ -68,9 +68,10 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const ch
 
  void DYWiFiConfig::taskSchdule01Second() {
    //DYWEB_DEBUG_PRINTLN("DYWEB:01Sedond:");
-   if (_taskState == DYWIFI_STATE_DISCONNECT) {
-     DYWIFICONFIG_DEBUG_PRINTLN(":disconnect");
-     WiFi.disconnect();
+	if (_taskState == DYWIFI_STATE_DISCONNECT) {
+		DYWIFICONFIG_DEBUG_PRINTLN(":disconnect");
+		_wifiReconnectCount = 0;
+		WiFi.disconnect();
    }
    if (_taskState == DYWIFI_STATE_REDISCONNECT) {
      DYWIFICONFIG_DEBUG_PRINTLN(":Reconnect");

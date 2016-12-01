@@ -1,18 +1,17 @@
 #include "DYStoreConfig.h"
-/*
+#include <EEPROM.h>
 
-
-*/
  extern "C" {
+#include "c_types.h"
+#include "ets_sys.h"
+#include "os_type.h"
+#include "osapi.h"
 #include "spi_flash.h"
 }
 
-#define SPIFFS_END			((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SEC_SIZE
-#define EEPROM_START		SPIFFS_END
-#define DYCFG_START        	(EEPROM_START + 4)
-
 extern "C" uint32_t _SPIFFS_end;
-#define DYEEPROM EEPROM
+//Use last SPIFFS 4kbytes to store Config
+EEPROMClass DYEEPROM((((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SEC_SIZE) - 1);
 
 DYStoreConfig::DYStoreConfig() {
 
@@ -20,7 +19,7 @@ DYStoreConfig::DYStoreConfig() {
 
 void DYStoreConfig::begin(int allocsize,int storeaddress,DYWIFICONFIG_STRUCT *wifconfig_struct) {
 	DYWIFICONFIG_DEBUG_PRINTLN("===begin===");
-	DYWIFICONFIG_DEBUG_PRINTLN(DYCFG_START,DEC);
+	DYWIFICONFIG_DEBUG_PRINTLN((((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SEC_SIZE) - 1);
 	_allocsize = allocsize;
 	_storeaddress = storeaddress;
 	_wificonfig = wifconfig_struct;
@@ -86,7 +85,9 @@ void DYStoreConfig::commit(DYWIFICONFIG_STRUCT_PTR s) {
 	DYWIFICONFIG_DEBUG_PRINTLN("===commit===");
 	int count = write(_storeaddress, *s);
 	description(s);
-	DYEEPROM.commit();
+	bool y = DYEEPROM.commit();
+	DYWIFICONFIG_DEBUG_PRINTLN((y?"YES":"NO"));
+	DYEEPROM.begin(_allocsize);
 }
 
 

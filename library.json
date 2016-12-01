@@ -1,0 +1,13 @@
+{
+  "name": "DYWiFiConfig",
+  "keywords": "wifi, wi-fi",
+  "description": "ESP8266 WiFi Connection manager with web configuration portal",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/danny-source/ESP8266_DYWiFiConfig.git"
+  },
+  "frameworks": "arduino",
+  "platforms": "esp8266",
+  "version": "0.1.0"
+}

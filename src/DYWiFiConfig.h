@@ -34,8 +34,8 @@ class DYWiFiConfig {
 	virtual ~DYWiFiConfig() {}
 	void begin(ESP8266WebServer *server, const char *webbase, const char *apname);
 	void handle();
- 	template <class T> int read(int address, T &data);//address of 0~199
-	template <class T> int write(int address, const T &data);//address of 0~199
+ 	template <class T> int read(int address, T &data);//address of 0 ~ 300
+	template <class T> int write(int address, const T &data);//address of 0 ~ 300
 	void commit();
 	private:
 	DYStoreConfig _storeconfig;

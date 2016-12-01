@@ -1,13 +1,15 @@
 
 #include "DYWiFiConfig.h"
 
+#define DYEEPRO_SIZE 512
+
 DYWiFiConfig::DYWiFiConfig() {
 
 }
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const char *apname) {
 	_server = server;
-	_storeconfig.begin(1024, 900, &_dws);
+	_storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
 	_storeconfig.read();
 	WiFi.mode(WIFI_AP_STA);
 	WiFi.disconnect();
@@ -212,10 +214,10 @@ void DYWiFiConfig::scanAPs(void) {
  		_dws.DNS[1] = (byte)_server->arg("dns2").toInt();
  		_dws.DNS[2] = (byte)_server->arg("dns3").toInt();
  		_dws.DNS[3] = (byte)_server->arg("dns4").toInt();
- 		_storeconfig.commit();
- 		_storeconfig.read();
  		_taskState = DYWIFI_STATE_DISCONNECT;
  		_nextTaskState = DYWIFI_STATE_REDISCONNECT;
+ 		_storeconfig.commit();
+ 		_storeconfig.read();
  		sendHtmlPageWithRedirectByTimer(_webbase,"done");
  }
 
@@ -319,11 +321,11 @@ void DYWiFiConfig::scanAPs(void) {
    return true;
  }
 template <class T> int DYWiFiConfig::read(int address, T &data) {
-	return _storeconfig.read(address, *data);
+	return _storeconfig.read(address + 200, *data);
 }
 
 template <class T> int DYWiFiConfig::write(int address, const T &data) {
-	return _storeconfig.write(address, *data);
+	return _storeconfig.write(address + 200, *data);
 
 }
 

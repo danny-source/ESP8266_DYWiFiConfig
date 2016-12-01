@@ -1,6 +1,6 @@
 # DYWiFiConfig For Arduino ESP8266
 
-The library is very simple to config wifi connection for Arduino ESP8266.
+ESP8266 WiFi Connection manager with web configuration portal
 
  ![](https://raw.githubusercontent.com/danny-source/ESP8266_DYWiFiConfig/master/screenshot/screenshot-index-page.png)
 

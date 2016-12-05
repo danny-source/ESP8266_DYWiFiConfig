@@ -7,13 +7,10 @@ DYWiFiConfig::DYWiFiConfig() {
 
 }
 
-void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const char *apname) {
+void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase) {
 	_server = server;
 	_storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
 	_storeconfig.read();
-	WiFi.mode(WIFI_AP_STA);
-	WiFi.disconnect();
-	String _apname(apname);
 	DYWIFICONFIG_DEBUG_PRINT(":apname:");
 	DYWIFICONFIG_DEBUG_PRINTLN(_apname);
 	_webbase = _webbase + String(webbase);
@@ -22,8 +19,12 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const ch
 	}
 	DYWIFICONFIG_DEBUG_PRINT(":1:webbase:");
 	DYWIFICONFIG_DEBUG_PRINTLN(_webbase);
+	disableAP();
+	disableAP();
+	WiFi.disconnect();
+	_apname = String("DYWiFi-") + String(ESP.getChipId());
+	_appassword = "";
 
-	WiFi.softAP(_apname.c_str(), NULL);
 	_wifiStateMachine = 1;
 	scanAPs();
 	setupWeb();
@@ -79,6 +80,19 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase, const ch
      DYWIFICONFIG_DEBUG_PRINTLN(":Reconnect");
      if (autoConnectToAP()) {
      }
+   }
+   if (_autoEnableAPPin >0) {
+	   int state = digitalRead(_autoEnableAPPin);
+	   if (state == LOW){
+		   //WiFiMode_t t = WiFi.getMode();
+		   //if ((t == WIFI_OFF) || ( t == WIFI_AP)) {
+				enableAP();
+				Serial.println("enable AP");
+			//}
+	   }else {
+		   disableAP();
+	   }
+
    }
    _taskState = _nextTaskState;
    _nextTaskState = 0;
@@ -331,4 +345,38 @@ template <class T> int DYWiFiConfig::write(int address, const T &data) {
 
 void DYWiFiConfig::commit() {
 	_storeconfig.commit();
+}
+
+void DYWiFiConfig::enableAP(const char *name,const char *password) {
+	setAP(name,password);
+	enableAP();
+}
+
+void DYWiFiConfig::enableAP() {
+	if (_appassword == ""){
+		WiFi.softAP(_apname.c_str(), NULL);
+	}else {
+		WiFi.softAP(_apname.c_str(), _appassword.c_str());
+	}
+	//WiFi.mode(WIFI_AP_STA);
+}
+
+void DYWiFiConfig::disableAP() {
+	WiFi.mode(WIFI_STA);
+}
+
+void DYWiFiConfig::autoEnableAP(int pin) {
+	_autoEnableAPPin = pin;
+	if (pin > 0) {
+		pinMode(pin,INPUT_PULLUP);
+	}
+}
+
+void DYWiFiConfig::setAP(const char *name,const char *password) {
+	_apname = String(name);
+	if (password == NULL) {
+		_appassword = String("");
+	}else {
+		_appassword = String(password);
+	}
 }

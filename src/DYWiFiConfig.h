@@ -13,17 +13,6 @@ extern "C" {
 }
 #endif
 #include "DYStoreConfig.h"
-//
-//#define DYWIFICONFIG_DEBUG
-//#define DYWIFICONFIG_DEBUG_SERIAL Serial
-
-//#ifdef DYWIFICONFIG_DEBUG
-  //#define DYWIFICONFIG_DEBUG_PRINT(...) { DYWIFICONFIG_DEBUG_SERIAL.print(__VA_ARGS__); }
-  //#define DYWIFICONFIG_DEBUG_PRINTLN(...) { DYWIFICONFIG_DEBUG_SERIAL.println(__VA_ARGS__); }
-//#else
-  //#define DYWIFICONFIG_DEBUG_PRINT(...) {}
-  //#define DYWIFICONFIG_DEBUG_PRINTLN(...) {}
-//#endif
 
 #define DYWIFI_STATE_DISCONNECT 1
 #define DYWIFI_STATE_REDISCONNECT 2
@@ -32,16 +21,22 @@ class DYWiFiConfig {
 	public:
 	DYWiFiConfig();
 	virtual ~DYWiFiConfig() {}
-	void begin(ESP8266WebServer *server, const char *webbase, const char *apname);
+	void begin(ESP8266WebServer *server, const char *webbase);
 	void handle();
- 	template <class T> int read(int address, T &data);//address of 0 ~ 300
-	template <class T> int write(int address, const T &data);//address of 0 ~ 300
+ 	template <class T> int read(int address, T &data);			//address of 0 ~ 300
+	template <class T> int write(int address, const T &data);	//address of 0 ~ 300
 	void commit();
+	void setAP(const char *name,const char *password);
+	void enableAP();
+	void disableAP();
+	void enableAP(const char *name,const char *password);
+	void autoEnableAP(int pin);									//set pin to -1 to disable
 	private:
 	DYStoreConfig _storeconfig;
 	ESP8266WebServer *_server;
 	String _scanAPsWebOptionCache;
 	String _apname;
+	String _appassword;
 	String _webbase;
 	DYWIFICONFIG_STRUCT _dws;
 	int _wifiStateMachine = 0;
@@ -54,6 +49,8 @@ class DYWiFiConfig {
 	long _task10SecondBase = 10;
 	long _task20SecondBase = 20;
 	int _wifiReconnectCount = 0;
+	//
+	int _autoEnableAPPin = -1;
 	//
 	bool autoConnectToAP();
 	// void createWebServer(const char *webbase);

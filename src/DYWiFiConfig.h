@@ -16,6 +16,9 @@ extern "C" {
 
 #define DYWIFI_STATE_DISCONNECT 1
 #define DYWIFI_STATE_REDISCONNECT 2
+//callback
+
+typedef void (*DYWIFI_STATECB)(int);
 
 class DYWiFiConfig {
 	public:
@@ -30,7 +33,9 @@ class DYWiFiConfig {
 	void enableAP();
 	void disableAP();
 	void enableAP(const char *name,const char *password);
-	void autoEnableAP(int pin);									//set pin to -1 to disable
+	void autoEnableAP(int pin);
+	void reConnect();									//set pin to -1 to disable
+	void setWifiStateCB(DYWIFI_STATECB cb);
 	private:
 	DYStoreConfig _storeconfig;
 	ESP8266WebServer *_server;
@@ -51,6 +56,8 @@ class DYWiFiConfig {
 	int _wifiReconnectCount = 0;
 	//
 	int _autoEnableAPPin = -1;
+	int _wifiStatus = WL_IDLE_STATUS;
+	DYWIFI_STATECB wifiStateCB = NULL;
 	//
 	bool autoConnectToAP();
 	// void createWebServer(const char *webbase);

@@ -7,23 +7,24 @@ DYWiFiConfig::DYWiFiConfig() {
 
 }
 
-void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webbase) {
+void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
+	wifiStateCB = 0;
     _server = server;
     _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
     _storeconfig.read();
     DYWIFICONFIG_DEBUG_PRINT(":apname:");
     DYWIFICONFIG_DEBUG_PRINTLN(_apname);
-    _webbase = _webbase + String(webbase);
-    if (_webbase.lastIndexOf("/") == -1) {
-        _webbase =  _webbase + "/";
+    _webPath = _webPath + String(webPath);
+    if (_webPath.lastIndexOf("/") == -1) {
+        _webPath =  _webPath + "/";
     }
+	_webReturnPath = String(_webPath);
     DYWIFICONFIG_DEBUG_PRINT(":1:webbase:");
-    DYWIFICONFIG_DEBUG_PRINTLN(_webbase);
+    DYWIFICONFIG_DEBUG_PRINTLN(_webPath);
     disableAP();
     WiFi.disconnect();
     _apname = String("DYWiFi-") + String(ESP.getChipId());
     _appassword = "";
-
     _wifiStateMachine = 1;
     scanAPs();
     setupWeb();
@@ -76,7 +77,7 @@ void DYWiFiConfig::taskSchdule01Second() {
         _wifiReconnectCount = 0;
         WiFi.disconnect();
     }
-    if (_taskState == DYWIFI_STATE_REDISCONNECT) {
+    if (_taskState == DYWIFI_STATE_RECONNECT) {
         DYWIFICONFIG_DEBUG_PRINTLN(":Reconnect");
         if (autoConnectToAP()) {
         }
@@ -108,12 +109,15 @@ void DYWiFiConfig::taskSchdule01Second() {
         }else {
 
 		}
+		if (wifiStateCB != NULL) {
+			wifiStateCB (_wifiStatus);
+		}
     }
     _taskState = _nextTaskState;
     _nextTaskState = 0;
 }
 
-void DYWiFiConfig::setWifiStateCB(DYWIFI_STATECB cb) {
+void DYWiFiConfig::setWifiStateCallback(DYWifiStateCallback cb) {
 	wifiStateCB = cb;
 }
 
@@ -165,13 +169,13 @@ void DYWiFiConfig::setupWeb() {
 }
 
 void DYWiFiConfig::createWebServer() {
-    String _websettingpath = _webbase + "setting";
-    String _webreconnectpath = _webbase + "reconnect";
-    _server->on(_webbase.c_str(), std::bind(&DYWiFiConfig::pageOfAdmin, this));
+    String _websettingpath = _webPath + "setting";
+    String _webreconnectpath = _webPath + "reconnect";
+    _server->on(_webPath.c_str(), std::bind(&DYWiFiConfig::pageOfAdmin, this));
     _server->on(_websettingpath.c_str(),std::bind(&DYWiFiConfig::pageOfSetting, this));
     _server->on(_webreconnectpath.c_str(), std::bind(&DYWiFiConfig::pageOfReconnect, this));
     DYWIFICONFIG_DEBUG_PRINT(":webbase:");
-    DYWIFICONFIG_DEBUG_PRINTLN(_webbase);
+    DYWIFICONFIG_DEBUG_PRINTLN(_webPath);
     DYWIFICONFIG_DEBUG_PRINT(":setting:");
     DYWIFICONFIG_DEBUG_PRINTLN(_websettingpath);
     DYWIFICONFIG_DEBUG_PRINT(":reconnect:");
@@ -250,10 +254,10 @@ void DYWiFiConfig::pageOfSetting() {
     _dws.DNS[2] = (byte)_server->arg("dns3").toInt();
     _dws.DNS[3] = (byte)_server->arg("dns4").toInt();
     _taskState = DYWIFI_STATE_DISCONNECT;
-    _nextTaskState = DYWIFI_STATE_REDISCONNECT;
+    _nextTaskState = DYWIFI_STATE_RECONNECT;
     _storeconfig.commit();
     _storeconfig.read();
-    sendHtmlPageWithRedirectByTimer(_webbase,"done");
+    sendHtmlPageWithRedirectByTimer(_webReturnPath,"done");
 }
 
 void DYWiFiConfig::pageOfReconnect() {
@@ -264,8 +268,8 @@ void DYWiFiConfig::pageOfReconnect() {
         if (reconnectStr.indexOf("1") > -1) {
             _wifiReconnectCount = 0;
             _taskState = DYWIFI_STATE_DISCONNECT;
-            _nextTaskState = DYWIFI_STATE_REDISCONNECT;
-            sendHtmlPageWithRedirectByTimer(_webbase,"reconnect");
+            _nextTaskState = DYWIFI_STATE_RECONNECT;
+            sendHtmlPageWithRedirectByTimer(_webPath,"reconnect");
             return;
         }
     } else {
@@ -342,7 +346,7 @@ bool DYWiFiConfig::autoConnectToAP() {
         if (_wifiReconnectCount > 3) {
             WiFi.disconnect();
         } else {
-            _nextTaskState = DYWIFI_STATE_REDISCONNECT;
+            _nextTaskState = DYWIFI_STATE_RECONNECT;
         }
         return false;
     }
@@ -397,7 +401,9 @@ void DYWiFiConfig::setAP(const char *name,const char *password) {
 
 void DYWiFiConfig::reConnect() {
 	WiFi.disconnect();
-	_nextTaskState = DYWIFI_STATE_REDISCONNECT;
+	_nextTaskState = DYWIFI_STATE_RECONNECT;
 }
 
-
+void DYWiFiConfig::setWebReturnPath(const char *path) {
+	_webReturnPath = String(path);
+}

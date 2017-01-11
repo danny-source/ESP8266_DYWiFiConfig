@@ -15,10 +15,10 @@ extern "C" {
 #include "DYStoreConfig.h"
 
 #define DYWIFI_STATE_DISCONNECT 1
-#define DYWIFI_STATE_REDISCONNECT 2
+#define DYWIFI_STATE_RECONNECT 2
 //callback
 
-typedef void (*DYWIFI_STATECB)(int);
+typedef void (*DYWifiStateCallback)(int);
 
 class DYWiFiConfig {
 	public:
@@ -35,14 +35,16 @@ class DYWiFiConfig {
 	void enableAP(const char *name,const char *password);
 	void autoEnableAP(int pin);
 	void reConnect();									//set pin to -1 to disable
-	void setWifiStateCB(DYWIFI_STATECB cb);
+	void setWifiStateCallback(DYWifiStateCallback cb);
+	void setWebReturnPath(const char *path);
 	private:
 	DYStoreConfig _storeconfig;
 	ESP8266WebServer *_server;
 	String _scanAPsWebOptionCache;
 	String _apname;
 	String _appassword;
-	String _webbase;
+	String _webPath;
+	String _webReturnPath;
 	DYWIFICONFIG_STRUCT _dws;
 	int _wifiStateMachine = 0;
 	//
@@ -57,7 +59,7 @@ class DYWiFiConfig {
 	//
 	int _autoEnableAPPin = -1;
 	int _wifiStatus = WL_IDLE_STATUS;
-	DYWIFI_STATECB wifiStateCB = NULL;
+	DYWifiStateCallback wifiStateCB;
 	//
 	bool autoConnectToAP();
 	// void createWebServer(const char *webbase);

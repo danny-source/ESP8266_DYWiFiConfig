@@ -78,11 +78,13 @@ void DYStoreConfig::commit(DYWIFICONFIG_STRUCT s) {
 	//description(s);
 	//DYEEPROM.commit();
 	//DYEEPROM.begin(_allocsize);
+	strcpy(s.SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
 	commit(&s);
 }
 
 void DYStoreConfig::commit(DYWIFICONFIG_STRUCT_PTR s) {
 	DYWIFICONFIG_DEBUG_PRINTLN("===commit===");
+	strcpy(s->SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
 	int count = write(_storeaddress, *s);
 	description(s);
 	bool y = DYEEPROM.commit();

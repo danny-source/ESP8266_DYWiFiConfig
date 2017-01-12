@@ -37,8 +37,11 @@ class DYWiFiConfig {
 	void reConnect();									//set pin to -1 to disable
 	void setWifiStateCallback(DYWifiStateCallback cb);
 	void setWebReturnPath(const char *path);
+	void setDefaultConfig(DYWIFICONFIG_STRUCT s);
+	DYWIFICONFIG_STRUCT createConfig();
 	private:
 	DYStoreConfig _storeconfig;
+	DYWIFICONFIG_STRUCT_PTR _defaultconfig;
 	ESP8266WebServer *_server;
 	String _scanAPsWebOptionCache;
 	String _apname;

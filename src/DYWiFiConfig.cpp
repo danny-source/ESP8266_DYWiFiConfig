@@ -9,6 +9,7 @@ DYWiFiConfig::DYWiFiConfig() {
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
 	wifiStateCB = 0;
+	_defaultconfig = 0;
     _server = server;
     _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
     _storeconfig.read();
@@ -33,7 +34,8 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     _taskStartTime = millis();
     _task10SecondBase = 10;
     _task20SecondBase = 20;
-    autoConnectToAP();
+    //autoConnectToAP();
+    _nextTaskState = DYWIFI_STATE_RECONNECT;
 }
 
 void DYWiFiConfig::handle() {
@@ -406,4 +408,23 @@ void DYWiFiConfig::reConnect() {
 
 void DYWiFiConfig::setWebReturnPath(const char *path) {
 	_webReturnPath = String(path);
+}
+
+void DYWiFiConfig::setDefaultConfig(DYWIFICONFIG_STRUCT s) {
+	_storeconfig.commit(s);
+	_storeconfig.read();
+}
+
+DYWIFICONFIG_STRUCT DYWiFiConfig::createConfig() {
+	DYWIFICONFIG_STRUCT s = {0};
+	strcpy(s.SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
+	s.NEED_FACTORY = 1;
+	memset(s.SSID,0,33);
+	memset(s.SSID_PASSWORD,0,33);
+	memset(s.IP,0,4);
+	memset(s.GW,0,4);
+	memset(s.SNET,0,4);
+	memset(s.DNS,0,4);
+	s.DHCPAUTO = 1;
+	return s;
 }

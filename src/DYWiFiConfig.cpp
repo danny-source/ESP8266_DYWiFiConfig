@@ -8,8 +8,8 @@ DYWiFiConfig::DYWiFiConfig() {
 }
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
-	wifiStateCB = 0;
-	_defaultconfig = 0;
+    wifiStateCB = 0;
+    _defaultconfig = 0;
     _server = server;
     _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
     _storeconfig.read();
@@ -19,7 +19,7 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     if (_webPath.lastIndexOf("/") == -1) {
         _webPath =  _webPath + "/";
     }
-	_webReturnPath = String(_webPath);
+    _webReturnPath = String(_webPath);
     DYWIFICONFIG_DEBUG_PRINT(":1:webbase:");
     DYWIFICONFIG_DEBUG_PRINTLN(_webPath);
     disableAP();
@@ -34,8 +34,10 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     _taskStartTime = millis();
     _task10SecondBase = 10;
     _task20SecondBase = 20;
-    //autoConnectToAP();
+    _task40SecondBase = 40;
+    _taskClearCounter = (int)(mathLCM(mathLCM(_task10SecondBase, _task20SecondBase), _task40SecondBase));
     _nextTaskState = DYWIFI_STATE_RECONNECT;
+    _autoEnableAPPin = -1;
 }
 
 void DYWiFiConfig::handle() {
@@ -62,11 +64,17 @@ void DYWiFiConfig::taskSchdule() {
             _task20SecondBase += 20;
             taskSchdule20Second();
         }
+        //per 40 second
+        if ( _taskTimerCounter >= _task40SecondBase) {
+            _task40SecondBase += 40;
+            taskSchdule40Second();
+        }
         //clear counter
-        if (_taskTimerCounter >= 60) {
+        if (_taskTimerCounter >= _taskClearCounter) {
             _taskTimerCounter = 0;
             _task10SecondBase = 10;
             _task20SecondBase = 20;
+            _task40SecondBase = 40;
         }
     }
 
@@ -84,16 +92,10 @@ void DYWiFiConfig::taskSchdule01Second() {
         if (autoConnectToAP()) {
         }
     }
-    if (_autoEnableAPPin >0) {
+    if (_autoEnableAPPin >= 0) {
         int state = digitalRead(_autoEnableAPPin);
         if (state == LOW) {
-            //WiFiMode_t t = WiFi.getMode();
-            //if ((t == WIFI_OFF) || ( t == WIFI_AP)) {
             enableAP();
-            Serial.println("enable AP");
-            //}
-        } else {
-            disableAP();
         }
 
     }
@@ -102,37 +104,41 @@ void DYWiFiConfig::taskSchdule01Second() {
     if (_wifiStatus != _s) {
         _wifiStatus = _s;
         if (_wifiStatus == WL_CONNECTED) {
-			setDHCP(_dws.DHCPAUTO);
+            setDHCP(_dws.DHCPAUTO);
             if (!MDNS.begin(_apname.c_str())) {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS fail");
             } else {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS started");
             }
-        }else {
+        } else {
 
-		}
-		if (wifiStateCB != NULL) {
-			wifiStateCB (_wifiStatus);
-		}
+        }
+        if (wifiStateCB != NULL) {
+            wifiStateCB (_wifiStatus);
+        }
     }
     _taskState = _nextTaskState;
     _nextTaskState = 0;
 }
 
 void DYWiFiConfig::setWifiStateCallback(DYWifiStateCallback cb) {
-	wifiStateCB = cb;
+    wifiStateCB = cb;
 }
 
 void DYWiFiConfig::taskSchdule10Second() {
     DYWIFICONFIG_DEBUG_PRINT(":10Sedond:");
     DYWIFICONFIG_DEBUG_PRINTLN(_taskTimerCounter,DEC);
-    autoConnectToAP();
 }
 
 void DYWiFiConfig::taskSchdule20Second() {
     DYWIFICONFIG_DEBUG_PRINT(":20Sedond:");
     DYWIFICONFIG_DEBUG_PRINTLN(_taskTimerCounter,DEC);
-    //scanAPs();
+    autoConnectToAP();
+}
+
+void DYWiFiConfig::taskSchdule40Second() {
+    DYWIFICONFIG_DEBUG_PRINT(":40Sedond:");
+    DYWIFICONFIG_DEBUG_PRINTLN(_taskTimerCounter,DEC);
 }
 
 void DYWiFiConfig::scanAPs(void) {
@@ -342,11 +348,15 @@ bool DYWiFiConfig::autoConnectToAP() {
     //0=fail,1=success,2=none
     if (state == 1) {
         _wifiReconnectCount = 0;
+        if (_autoEnableAPPin >= 0) {
+			disableAP();
+		}
         return true;
     } else if (state == 0) {
         _wifiReconnectCount++;
         if (_wifiReconnectCount > 3) {
             WiFi.disconnect();
+            enableAP();
         } else {
             _nextTaskState = DYWIFI_STATE_RECONNECT;
         }
@@ -402,29 +412,49 @@ void DYWiFiConfig::setAP(const char *name,const char *password) {
 }
 
 void DYWiFiConfig::reConnect() {
-	WiFi.disconnect();
-	_nextTaskState = DYWIFI_STATE_RECONNECT;
+    WiFi.disconnect();
+    _nextTaskState = DYWIFI_STATE_RECONNECT;
 }
 
 void DYWiFiConfig::setWebReturnPath(const char *path) {
-	_webReturnPath = String(path);
+    _webReturnPath = String(path);
 }
 
-void DYWiFiConfig::setDefaultConfig(DYWIFICONFIG_STRUCT s) {
-	_storeconfig.commit(s);
-	_storeconfig.read();
+bool DYWiFiConfig::setDefaultConfig(DYWIFICONFIG_STRUCT s) {
+    String cPrefix = String(_dws.SETTING_DATA_PREFIX);
+    if ((cPrefix.indexOf(s.SETTING_DATA_PREFIX) <= -1) || (strlen(_dws.SSID) <=0)) {
+        _storeconfig.commit(s);
+        _storeconfig.read();
+        return true;
+    }
+    return false;
 }
 
 DYWIFICONFIG_STRUCT DYWiFiConfig::createConfig() {
-	DYWIFICONFIG_STRUCT s = {0};
-	strcpy(s.SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
-	s.NEED_FACTORY = 1;
-	memset(s.SSID,0,33);
-	memset(s.SSID_PASSWORD,0,33);
-	memset(s.IP,0,4);
-	memset(s.GW,0,4);
-	memset(s.SNET,0,4);
-	memset(s.DNS,0,4);
-	s.DHCPAUTO = 1;
-	return s;
+    DYWIFICONFIG_STRUCT s = {0};
+    strcpy(s.SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
+    s.NEED_FACTORY = 1;
+    memset(s.SSID,0,33);
+    memset(s.SSID_PASSWORD,0,33);
+    memset(s.IP,0,4);
+    memset(s.GW,0,4);
+    memset(s.SNET,0,4);
+    memset(s.DNS,0,4);
+    s.DHCPAUTO = 1;
+    return s;
 }
+
+
+int DYWiFiConfig::mathGCD(int m, int n) {
+    while(n != 0) {
+        int r = m % n;
+        m = n;
+        n = r;
+    }
+    return m;
+}
+
+int DYWiFiConfig::mathLCM(int m, int n) {
+    return m * n / mathGCD(m, n);
+}
+

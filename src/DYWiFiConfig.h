@@ -37,7 +37,7 @@ class DYWiFiConfig {
 	void reConnect();									//set pin to -1 to disable
 	void setWifiStateCallback(DYWifiStateCallback cb);
 	void setWebReturnPath(const char *path);
-	void setDefaultConfig(DYWIFICONFIG_STRUCT s);
+	bool setDefaultConfig(DYWIFICONFIG_STRUCT s);
 	DYWIFICONFIG_STRUCT createConfig();
 	private:
 	DYStoreConfig _storeconfig;
@@ -58,6 +58,8 @@ class DYWiFiConfig {
 	int _nextTaskState = 0;
 	long _task10SecondBase = 10;
 	long _task20SecondBase = 20;
+	long _task40SecondBase = 40;
+	long _taskClearCounter;
 	int _wifiReconnectCount = 0;
 	//
 	int _autoEnableAPPin = -1;
@@ -76,10 +78,14 @@ class DYWiFiConfig {
 	void taskSchdule01Second();
 	void taskSchdule10Second();
 	void taskSchdule20Second();
+	void taskSchdule40Second();
 	 //
 	void pageOfAdmin();
 	void pageOfSetting();
 	void pageOfReconnect();
+	//
+	int mathGCD(int m, int n);
+	int mathLCM(int m, int n);
 
 };
 #endif

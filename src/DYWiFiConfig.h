@@ -20,6 +20,18 @@ extern "C" {
 
 typedef void (*DYWifiStateCallback)(int);
 
+typedef enum {
+    DW_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
+    DW_IDLE_STATUS      = 0,
+    DW_NO_SSID_AVAIL    = 1,
+    DW_SCAN_COMPLETED   = 2,
+    DW_CONNECTED        = 3,
+    DW_CONNECT_FAILED   = 4,
+    DW_CONNECTION_LOST  = 5,
+    DW_DISCONNECTED     = 6,
+    DW_CONNECTING		= 7
+} dw_status_t;
+
 class DYWiFiConfig {
 	public:
 	DYWiFiConfig();
@@ -39,6 +51,9 @@ class DYWiFiConfig {
 	void setWebReturnPath(const char *path);
 	bool setDefaultConfig(DYWIFICONFIG_STRUCT s);
 	DYWIFICONFIG_STRUCT createConfig();
+	//
+	dw_status_t status();
+	void printStatus();
 	private:
 	DYStoreConfig _storeconfig;
 	DYWIFICONFIG_STRUCT_PTR _defaultconfig;
@@ -63,7 +78,7 @@ class DYWiFiConfig {
 	int _wifiReconnectCount = 0;
 	//
 	int _autoEnableAPPin = -1;
-	int _wifiStatus = WL_IDLE_STATUS;
+	int _wifiStatus = DW_IDLE_STATUS;
 	DYWifiStateCallback wifiStateCB;
 	//
 	bool autoConnectToAP();

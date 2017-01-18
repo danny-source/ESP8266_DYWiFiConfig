@@ -13,8 +13,6 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     _server = server;
     _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
     _storeconfig.read();
-    DYWIFICONFIG_DEBUG_PRINT(":apname:");
-    DYWIFICONFIG_DEBUG_PRINTLN(_apname);
     _webPath = _webPath + String(webPath);
     if (_webPath.lastIndexOf("/") == -1) {
         _webPath =  _webPath + "/";
@@ -80,6 +78,10 @@ void DYWiFiConfig::taskSchdule() {
 
 }
 
+void DYWiFiConfig::setWifiStateCallback(DYWifiStateCallback cb) {
+    wifiStateCB = cb;
+}
+
 void DYWiFiConfig::taskSchdule01Second() {
     //DYWEB_DEBUG_PRINTLN("DYWEB:01Sedond:");
     if (_taskState == DYWIFI_STATE_DISCONNECT) {
@@ -100,16 +102,23 @@ void DYWiFiConfig::taskSchdule01Second() {
 
     }
     //
-    int _s = WiFi.status();
+    int _s = status();
     if (_wifiStatus != _s) {
+		printStatus();
         _wifiStatus = _s;
-        if (_wifiStatus == WL_CONNECTED) {
+        if (_wifiStatus == DW_CONNECTED) {
             setDHCP(_dws.DHCPAUTO);
             if (!MDNS.begin(_apname.c_str())) {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS fail");
             } else {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS started");
             }
+			DYWIFICONFIG_DEBUG_PRINT(":apname:");
+			DYWIFICONFIG_DEBUG_PRINTLN(_apname);
+			IPAddress sip = WiFi.localIP();
+			String sipStr = String(sip[0]) + '.' + String(sip[1]) + '.' + String(sip[2]) + '.' + String(sip[3]);
+			DYWIFICONFIG_DEBUG_PRINTLN("IP:");
+			DYWIFICONFIG_DEBUG_PRINTLN(sipStr);
         } else {
 
         }
@@ -121,19 +130,22 @@ void DYWiFiConfig::taskSchdule01Second() {
     _nextTaskState = 0;
 }
 
-void DYWiFiConfig::setWifiStateCallback(DYWifiStateCallback cb) {
-    wifiStateCB = cb;
-}
-
 void DYWiFiConfig::taskSchdule10Second() {
     DYWIFICONFIG_DEBUG_PRINT(":10Sedond:");
     DYWIFICONFIG_DEBUG_PRINTLN(_taskTimerCounter,DEC);
+	if (_wifiReconnectCount <= 1) {
+		DYWIFICONFIG_DEBUG_PRINTLN("autoConnectToAP");
+		autoConnectToAP();
+	}
 }
 
 void DYWiFiConfig::taskSchdule20Second() {
     DYWIFICONFIG_DEBUG_PRINT(":20Sedond:");
     DYWIFICONFIG_DEBUG_PRINTLN(_taskTimerCounter,DEC);
-    autoConnectToAP();
+	if (_wifiReconnectCount >= 2) {
+		DYWIFICONFIG_DEBUG_PRINTLN("autoConnectToAP");
+		autoConnectToAP();
+	}
 }
 
 void DYWiFiConfig::taskSchdule40Second() {
@@ -294,39 +306,40 @@ void DYWiFiConfig::sendHtmlPageWithRedirectByTimer(String gotoUrl,String Message
 }
 
 int DYWiFiConfig::setWifi(String essid, String epassword) {
-    //0=fail,1=success,2=none
-    int c = 0;
-    //
+    //0=fail,1=success,2=connecting,3=none
     if (essid.length()<=0) {
         return 0;
     }
-    if (WiFi.status() == WL_CONNECTED) {
+    if (status() == DW_CONNECTED) {
         if (WiFi.SSID().indexOf(essid) >=0) {
-            return 2;
+			_wifiReconnectCount = 0;
+			if (_autoEnableAPPin >= 0) {
+				disableAP();
+			}
+            return 1;
         }
     }
     //
-    if ((epassword == "") || epassword.length() <=0) {
-        WiFi.begin(essid.c_str(), NULL);
-    } else {
-        WiFi.begin(essid.c_str(), epassword.c_str());
-    }
-    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Connect to AP");
-    while ( c < 30 ) {
-        if (WiFi.status() == WL_CONNECTED) {
-            IPAddress sip = WiFi.localIP();
-            String sipStr = String(sip[0]) + '.' + String(sip[1]) + '.' + String(sip[2]) + '.' + String(sip[3]);
-            DYWIFICONFIG_DEBUG_PRINTLN("");
-            DYWIFICONFIG_DEBUG_PRINTLN(sipStr);
-            return 1;
+    if (status() == DW_CONNECTING) {
+		return 2;
+	}
+
+	if ((status() == DW_NO_SSID_AVAIL) || (status() == DW_CONNECT_FAILED)) {
+		_wifiReconnectCount++;
+        if (_wifiReconnectCount >= 1) {
+            enableAP();
         }
-        delay(500);
-        DYWIFICONFIG_DEBUG_PRINT(WiFi.status());
-        c++;
+	}
+
+    if ((epassword == "") || epassword.length() <=0){
+	    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Connect to AP");
+        WiFi.begin(essid.c_str(), NULL);
+        return 2;
+    } else {
+	    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Connect to AP");
+        WiFi.begin(essid.c_str(), epassword.c_str());
+        return 2;
     }
-    DYWIFICONFIG_DEBUG_PRINTLN("");
-    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Connection is timed out");
-    return 0;
 }
 
 bool DYWiFiConfig::setDHCP(byte isAuto) {
@@ -340,28 +353,7 @@ bool DYWiFiConfig::setDHCP(byte isAuto) {
 }
 
 bool DYWiFiConfig::autoConnectToAP() {
-    if (_wifiReconnectCount > 3) {
-        DYWIFICONFIG_DEBUG_PRINTLN(":stop connect (3)");
-        return false;
-    }
     int state = setWifi(String(_dws.SSID), String(_dws.SSID_PASSWORD));
-    //0=fail,1=success,2=none
-    if (state == 1) {
-        _wifiReconnectCount = 0;
-        if (_autoEnableAPPin >= 0) {
-			disableAP();
-		}
-        return true;
-    } else if (state == 0) {
-        _wifiReconnectCount++;
-        if (_wifiReconnectCount > 3) {
-            WiFi.disconnect();
-            enableAP();
-        } else {
-            _nextTaskState = DYWIFI_STATE_RECONNECT;
-        }
-        return false;
-    }
     return true;
 }
 template <class T> int DYWiFiConfig::read(int address, T &data) {
@@ -458,3 +450,58 @@ int DYWiFiConfig::mathLCM(int m, int n) {
     return m * n / mathGCD(m, n);
 }
 
+dw_status_t DYWiFiConfig::status() {
+    station_status_t status = wifi_station_get_connect_status();
+	//1:connected
+    switch(status) {
+        case STATION_GOT_IP:
+            return DW_CONNECTED;
+        case STATION_NO_AP_FOUND:
+            return DW_NO_SSID_AVAIL;
+        case STATION_CONNECT_FAIL:
+        case STATION_WRONG_PASSWORD:
+            return DW_CONNECT_FAILED;
+        case STATION_IDLE:
+            return DW_IDLE_STATUS;
+        case STATION_CONNECTING:
+			return DW_CONNECTING;
+        default:
+            return DW_DISCONNECTED;
+    }
+}
+
+
+void DYWiFiConfig::printStatus() {
+	dw_status_t s = status();
+	switch(s) {
+    case DW_NO_SHIELD:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_NO_SHIELD");
+		return;
+    case DW_IDLE_STATUS:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_IDLE_STATUS");
+		return;
+    case DW_NO_SSID_AVAIL:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_NO_SSID_AVAIL");
+		return;
+    case DW_SCAN_COMPLETED:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_SCAN_COMPLETED");
+		return;
+    case DW_CONNECTED:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_CONNECTED");
+		return;
+    case DW_CONNECT_FAILED:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_CONNECT_FAILED");
+		return;
+    case DW_CONNECTION_LOST:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_CONNECTION_LOST");
+		return;
+    case DW_DISCONNECTED:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_DISCONNECTED");
+		return;
+    case DW_CONNECTING:
+		DYWIFICONFIG_DEBUG_PRINTLN("DW_CONNECTING");
+		return;
+	default:
+		return;
+	}
+}

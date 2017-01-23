@@ -19,6 +19,7 @@ extern "C" {
 //callback
 
 typedef void (*DYWifiStateCallback)(int);
+typedef void (*DYWifiTaskSchdule)(int);			//TaskSchdule time of 01,10,20,40 second
 
 typedef enum {
     DW_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
@@ -48,6 +49,7 @@ class DYWiFiConfig {
 	void autoEnableAP(int pin);
 	void reConnect();									//set pin to -1 to disable
 	void setWifiStateCallback(DYWifiStateCallback cb);
+	void setWifiTaskSchduleCallback(DYWifiTaskSchdule cb);
 	void setWebReturnPath(const char *path);
 	bool setDefaultConfig(DYWIFICONFIG_STRUCT s);
 	DYWIFICONFIG_STRUCT createConfig();
@@ -80,6 +82,7 @@ class DYWiFiConfig {
 	int _autoEnableAPPin = -1;
 	int _wifiStatus = DW_IDLE_STATUS;
 	DYWifiStateCallback wifiStateCB;
+	DYWifiTaskSchdule	wifiTaskSchdule;
 	//
 	bool autoConnectToAP();
 	// void createWebServer(const char *webbase);

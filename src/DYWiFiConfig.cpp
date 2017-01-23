@@ -9,6 +9,7 @@ DYWiFiConfig::DYWiFiConfig() {
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     wifiStateCB = 0;
+    wifiTaskSchdule = 0;
     _defaultconfig = 0;
     _server = server;
     _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
@@ -52,20 +53,32 @@ void DYWiFiConfig::taskSchdule() {
         _taskTimerCounter = _taskTimerCounter + _taskTimeTemp;
         //per 1 second
         taskSchdule01Second();
+            if (wifiTaskSchdule != NULL) {
+				wifiTaskSchdule(1);
+			}
         //per 2 second
         if ( _taskTimerCounter >= _task10SecondBase) {
             _task10SecondBase += 10;
             taskSchdule10Second();
+            if (wifiTaskSchdule != NULL) {
+				wifiTaskSchdule(10);
+			}
         }
         //per 20 second
         if ( _taskTimerCounter >= _task20SecondBase) {
             _task20SecondBase += 20;
             taskSchdule20Second();
+            if (wifiTaskSchdule != NULL) {
+				wifiTaskSchdule(20);
+			}
         }
         //per 40 second
         if ( _taskTimerCounter >= _task40SecondBase) {
             _task40SecondBase += 40;
             taskSchdule40Second();
+            if (wifiTaskSchdule != NULL) {
+				wifiTaskSchdule(40);
+			}
         }
         //clear counter
         if (_taskTimerCounter >= _taskClearCounter) {
@@ -80,6 +93,10 @@ void DYWiFiConfig::taskSchdule() {
 
 void DYWiFiConfig::setWifiStateCallback(DYWifiStateCallback cb) {
     wifiStateCB = cb;
+}
+
+void DYWiFiConfig::setWifiTaskSchduleCallback(DYWifiTaskSchdule cb) {
+    wifiTaskSchdule = cb;
 }
 
 void DYWiFiConfig::taskSchdule01Second() {
@@ -381,10 +398,12 @@ void DYWiFiConfig::enableAP() {
         WiFi.softAP(_apname.c_str(), _appassword.c_str());
     }
     //WiFi.mode(WIFI_AP_STA);
+    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Enable AP");
 }
 
 void DYWiFiConfig::disableAP() {
     WiFi.mode(WIFI_STA);
+    DYWIFICONFIG_DEBUG_PRINTLN("DYWEB:Disable AP");
 }
 
 void DYWiFiConfig::autoEnableAP(int pin) {

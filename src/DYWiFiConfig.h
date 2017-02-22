@@ -38,11 +38,13 @@ class DYWiFiConfig {
 	DYWiFiConfig();
 	virtual ~DYWiFiConfig() {}
 	void begin(ESP8266WebServer *server, const char *webbase);
+	void begin(ESP8266WebServer *server, const char *webPath, DYWIFICONFIG_STRUCT defaultConfig);
 	void handle();
  	template <class T> int read(int address, T &data);			//address of 0 ~ 300
 	template <class T> int write(int address, const T &data);	//address of 0 ~ 300
 	void commit();
 	void setAP(const char *name,const char *password);
+	void setHOSTNAME(const char *name);
 	void enableAP();
 	void disableAP();
 	void enableAP(const char *name,const char *password);
@@ -53,6 +55,7 @@ class DYWiFiConfig {
 	void setWebReturnPath(const char *path);
 	bool setDefaultConfig(DYWIFICONFIG_STRUCT s);
 	DYWIFICONFIG_STRUCT createConfig();
+	DYWIFICONFIG_STRUCT_PTR getConfig();
 	//
 	dw_status_t status();
 	void printStatus();
@@ -83,6 +86,8 @@ class DYWiFiConfig {
 	int _wifiStatus = DW_IDLE_STATUS;
 	DYWifiStateCallback wifiStateCB;
 	DYWifiTaskSchdule	wifiTaskSchdule;
+	//
+	void init();
 	//
 	bool autoConnectToAP();
 	// void createWebServer(const char *webbase);

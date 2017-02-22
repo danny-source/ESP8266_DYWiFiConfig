@@ -1,19 +1,20 @@
 
 #include "DYWiFiConfig.h"
 
-#define DYEEPRO_SIZE 512
+#define DYEEPROM_SIZE 512
 
 DYWiFiConfig::DYWiFiConfig() {
 
 }
 
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
+    _storeconfig.begin(DYEEPROM_SIZE, 0, &_dws);
+    _storeconfig.read();
+	init();//inital Wifi settings
     wifiStateCB = 0;
     wifiTaskSchdule = 0;
     _defaultconfig = 0;
     _server = server;
-    _storeconfig.begin(DYEEPRO_SIZE, 0, &_dws);
-    _storeconfig.read();
     _webPath = _webPath + String(webPath);
     if (_webPath.lastIndexOf("/") == -1) {
         _webPath =  _webPath + "/";
@@ -23,8 +24,6 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     DYWIFICONFIG_DEBUG_PRINTLN(_webPath);
     disableAP();
     WiFi.disconnect();
-    _apname = String("DYWiFi-") + String(ESP.getChipId());
-    _appassword = "";
     _wifiStateMachine = 1;
     scanAPs();
     setupWeb();
@@ -37,6 +36,32 @@ void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     _taskClearCounter = (int)(mathLCM(mathLCM(_task10SecondBase, _task20SecondBase), _task40SecondBase));
     _nextTaskState = DYWIFI_STATE_RECONNECT;
     _autoEnableAPPin = -1;
+}
+
+void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath, DYWIFICONFIG_STRUCT defaultConfig) {
+	setDefaultConfig(defaultConfig);
+    begin(server, webPath);
+}
+
+void DYWiFiConfig::init() {
+	String stringName = String("DYWiFi-") + String(ESP.getChipId());
+	if ((_dws.SETTING_DATA_PREFIX[0] & _dws.SETTING_DATA_PREFIX[1] & _dws.SETTING_DATA_PREFIX[2] & _dws.SETTING_DATA_PREFIX[3]) == 0xff) {
+		DYWIFICONFIG_DEBUG_PRINTLN("clear config");
+		_storeconfig.clear();
+	}
+	if (strlen(_dws.APNAME) == 0) {
+		memset(_dws.APNAME,0,33);
+		strcpy(_dws.APNAME,stringName.c_str());
+		DYWIFICONFIG_DEBUG_PRINTLN("AP_NAME use default");
+	}
+	setAP(_dws.APNAME, _dws.APPASSWORD);
+	if (strlen(_dws.HOSTNAME) == 0) {
+		memset(_dws.HOSTNAME,0,33);
+		strcpy(_dws.HOSTNAME,stringName.c_str());
+		DYWIFICONFIG_DEBUG_PRINTLN("HOSTNAME use default");
+	}
+	setHOSTNAME(_dws.HOSTNAME);
+	DYWIFICONFIG_DEBUG_PRINTLN("=init end=");
 }
 
 void DYWiFiConfig::handle() {
@@ -420,6 +445,27 @@ void DYWiFiConfig::setAP(const char *name,const char *password) {
     } else {
         _appassword = String(password);
     }
+	if (name != _dws.APNAME) {
+		memset(_dws.APNAME,0,33);
+		strcpy(_dws.APNAME,_apname.c_str());
+	}
+	if (password != _dws.APPASSWORD) {
+		memset(_dws.APPASSWORD,0,33);
+		strcpy(_dws.APPASSWORD,_appassword.c_str());
+	}
+
+	_storeconfig.commit();
+	_storeconfig.read();
+
+}
+
+void DYWiFiConfig::setHOSTNAME(const char *name) {
+	if (name != _dws.HOSTNAME) {
+		memset(_dws.HOSTNAME,0,33);
+		strcpy(_dws.HOSTNAME,name);
+	}
+	_storeconfig.commit();
+	_storeconfig.read();
 }
 
 void DYWiFiConfig::reConnect() {
@@ -432,10 +478,16 @@ void DYWiFiConfig::setWebReturnPath(const char *path) {
 }
 
 bool DYWiFiConfig::setDefaultConfig(DYWIFICONFIG_STRUCT s) {
+    _storeconfig.begin(DYEEPROM_SIZE, 0, &_dws);
+    _storeconfig.read();
     String cPrefix = String(_dws.SETTING_DATA_PREFIX);
-    if ((cPrefix.indexOf(s.SETTING_DATA_PREFIX) <= -1) || (strlen(_dws.SSID) <=0)) {
+    if ((cPrefix.indexOf(s.SETTING_DATA_PREFIX) <= -1) || (strlen(_dws.SSID) <=0) || (s.NEED_FACTORY == 1)) {
+		s.NEED_FACTORY = 0;
         _storeconfig.commit(s);
         _storeconfig.read();
+		init();
+		_storeconfig.description();
+		DYWIFICONFIG_DEBUG_PRINTLN(":set Default Config");
         return true;
     }
     return false;
@@ -444,17 +496,23 @@ bool DYWiFiConfig::setDefaultConfig(DYWIFICONFIG_STRUCT s) {
 DYWIFICONFIG_STRUCT DYWiFiConfig::createConfig() {
     DYWIFICONFIG_STRUCT s = {0};
     strcpy(s.SETTING_DATA_PREFIX,DEF_DYWIFICONFIG_PREFIX);
-    s.NEED_FACTORY = 1;
+    s.NEED_FACTORY = 0;
     memset(s.SSID,0,33);
     memset(s.SSID_PASSWORD,0,33);
     memset(s.IP,0,4);
     memset(s.GW,0,4);
     memset(s.SNET,0,4);
     memset(s.DNS,0,4);
+    memset(s.HOSTNAME,0,50);
+	memset(s.APNAME,0,33);
+	memset(s.APPASSWORD,0,33);
     s.DHCPAUTO = 1;
     return s;
 }
 
+DYWIFICONFIG_STRUCT_PTR DYWiFiConfig::getConfig() {
+    return &_dws;
+}
 
 int DYWiFiConfig::mathGCD(int m, int n) {
     while(n != 0) {

@@ -10,6 +10,7 @@ DYWiFiConfig::DYWiFiConfig() {
 void DYWiFiConfig::begin(ESP8266WebServer *server, const char *webPath) {
     _storeconfig.begin(DYEEPROM_SIZE, 0, &_dws);
     _storeconfig.read();
+    DYWIFICONFIG_DEBUG_SERIAL.begin(115200);
 	init();//inital Wifi settings
     wifiStateCB = 0;
     wifiTaskSchdule = 0;
@@ -154,6 +155,7 @@ void DYWiFiConfig::taskSchdule01Second() {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS fail");
             } else {
                 DYWIFICONFIG_DEBUG_PRINTLN(":mDNS started");
+                MDNS.addService("http", "tcp", 80);
             }
 			DYWIFICONFIG_DEBUG_PRINT(":apname:");
 			DYWIFICONFIG_DEBUG_PRINTLN(_apname);

@@ -386,7 +386,7 @@ int DYWiFiConfig::setWifi(String essid, String epassword) {
     }
 }
 
-bool DYWiFiConfig::setDHCP(byte isAuto) {
+bool DYWiFiConfig::setDHCP(uint8_t isAuto) {
     if (isAuto == 1) {
         WiFi.config(IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0),IPAddress(0,0,0,0));
         DYWIFICONFIG_DEBUG_PRINTLN(":DHCP IP");
@@ -394,6 +394,7 @@ bool DYWiFiConfig::setDHCP(byte isAuto) {
         WiFi.config(IPAddress(_dws.IP[0],_dws.IP[1],_dws.IP[2],_dws.IP[3]),IPAddress(_dws.GW[0],_dws.GW[1],_dws.GW[2],_dws.GW[3]),IPAddress(_dws.SNET[0],_dws.SNET[1],_dws.SNET[2],_dws.SNET[3]),IPAddress(_dws.DNS[0],_dws.DNS[1],_dws.DNS[2],_dws.DNS[3]),IPAddress(_dws.DNS[0],_dws.DNS[1],_dws.DNS[2],_dws.DNS[3]));
         DYWIFICONFIG_DEBUG_PRINTLN(":MANUAL IP");
     }
+	return true;
 }
 
 bool DYWiFiConfig::autoConnectToAP() {
